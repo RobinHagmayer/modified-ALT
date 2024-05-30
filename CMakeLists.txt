@@ -4,6 +4,7 @@ project(Modified-ALT VERSION 1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(Modified-ALT src/main.cpp)
 
