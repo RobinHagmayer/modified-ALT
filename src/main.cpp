@@ -1,4 +1,4 @@
-#include "../include/Graph.h"
+#include "../include/GraphParser.h"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -23,11 +23,11 @@ int main(int argc, char *argv[]) {
   }
   file.close();
 
-  Graph graph = Graph();
+  GraphParser graph_parser = GraphParser();
 
   auto start = std::chrono::high_resolution_clock::now();
   /*graph.parse_graph_file(file_path, true);*/
-  graph.parse_graph_file(file_path);
+  GraphParserResult graph_result = graph_parser.parse(file_path);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
   cout << "Parsing of graph execution time: " << duration.count() << "ms."
        << endl;
 
-  cout << "Number of nodes: " << graph.number_of_nodes_ << endl;
-  cout << "Number of edges: " << graph.number_of_edges_ << endl;
+  cout << "Number of nodes: " << graph_result.number_of_nodes << endl;
+  cout << "Number of edges: " << graph_result.number_of_edges << endl;
   cout << "----------------------------------------------------------" << endl;
 }

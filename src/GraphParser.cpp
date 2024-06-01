@@ -1,4 +1,4 @@
-#include "../include/Graph.h"
+#include "../include/GraphParser.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -7,12 +7,20 @@
 #include <string>
 #include <vector>
 
-using std::cout;
-using std::endl;
-using std::string;
-using std::vector;
+GraphParserResult GraphParser::parse(const std::string &file_path,
+                                     bool verbose) {
+  using std::cout;
+  using std::endl;
+  using std::string;
+  using std::vector;
 
-void Graph::parse_graph_file(const string &file_path, bool verbose) {
+  // Declarations and initializations of variables
+  string line;
+  int number_of_nodes;
+  int number_of_edges;
+  int curr_node = 0;
+  int edge_counter = 0;
+
   // Open input file stream
   std::ifstream graph_file(file_path);
 
@@ -20,8 +28,6 @@ void Graph::parse_graph_file(const string &file_path, bool verbose) {
     cout << "Error opening the file: " << file_path << ". Exiting ..." << endl;
     exit(EXIT_FAILURE);
   }
-
-  string line;
 
   // Ignore comments and empty lines
   while (std::getline(graph_file, line)) {
@@ -32,7 +38,7 @@ void Graph::parse_graph_file(const string &file_path, bool verbose) {
 
   // Read number of nodes
   std::istringstream number_of_nodes_stream(line);
-  if (!(number_of_nodes_stream >> number_of_nodes_)) {
+  if (!(number_of_nodes_stream >> number_of_nodes)) {
     cout << "Error reading number of nodes. Exiting ..." << endl;
     exit(EXIT_FAILURE);
   }
@@ -45,13 +51,13 @@ void Graph::parse_graph_file(const string &file_path, bool verbose) {
 
   // Read number of edges
   std::istringstream number_of_edges_stream(line);
-  if (!(number_of_edges_stream >> number_of_edges_)) {
+  if (!(number_of_edges_stream >> number_of_edges)) {
     cout << "Error reading number of edges. Exiting ..." << endl;
     exit(EXIT_FAILURE);
   }
 
   // Read all nodes
-  for (int i = 0; i < number_of_nodes_; i++) {
+  for (int i = 0; i < number_of_nodes; i++) {
     if (!std::getline(graph_file, line)) {
       cout << "Unexpected error. Exiting ..." << endl;
       exit(EXIT_FAILURE);
@@ -60,19 +66,21 @@ void Graph::parse_graph_file(const string &file_path, bool verbose) {
   }
 
   // Read all edges
-  int curr_node = 0;
-  int edge_counter = 0;
-  offset_for_node_.push_back(0);
+  vector<Edge> edges;
+  edges.reserve(number_of_edges);
+  vector<int> node_offsets;
+  node_offsets.reserve(number_of_nodes + 1);
+  node_offsets.push_back(0);
 
-  for (int i = 0; i < number_of_edges_; i++) {
+  for (int i = 0; i < number_of_edges; i++) {
     if (!std::getline(graph_file, line)) {
       cout << "Unexpected error. Exiting ..." << endl;
       exit(EXIT_FAILURE);
     }
     // TODO: parse edges
-    parse_edges(line, curr_node, edge_counter);
+    parse_edges(line, curr_node, edge_counter, node_offsets, edges);
   }
-  offset_for_node_.push_back(number_of_edges_);
+  node_offsets.push_back(number_of_edges);
 
   // There should be no more lines at this point
   if (std::getline(graph_file, line)) {
@@ -82,9 +90,14 @@ void Graph::parse_graph_file(const string &file_path, bool verbose) {
   }
 
   graph_file.close();
+
+  return GraphParserResult(number_of_nodes, number_of_edges, node_offsets,
+                           edges);
 }
 
-void Graph::parse_edges(const string &line, int &curr_node, int &edge_counter) {
+void GraphParser::parse_edges(const std::string &line, int &curr_node,
+                              int &edge_counter, std::vector<int> &node_offsets,
+                              std::vector<Edge> &edges) {
   // Get src_id, trg_id and weight from an input string stream
   std::istringstream line_stream(line);
   int src_id, trg_id, weight;
@@ -92,29 +105,19 @@ void Graph::parse_edges(const string &line, int &curr_node, int &edge_counter) {
 
   // Create an edge from the data and store it in the edges_ vector
   Edge edge = {src_id, trg_id, weight};
-  edges_.push_back(edge);
+  edges.push_back(edge);
 
   // Create the offset for nodes vector
 
   if (curr_node + 1 == src_id) {
-    offset_for_node_.push_back(edge_counter);
+    node_offsets.push_back(edge_counter);
     curr_node++;
   } else if (curr_node + 1 < src_id) {
     int nodes_to_fill = src_id - curr_node;
     for (int i = 0; i < nodes_to_fill; i++) {
-      offset_for_node_.push_back(edge_counter);
+      node_offsets.push_back(edge_counter);
     }
     curr_node = src_id;
   }
   edge_counter++;
 }
-
-std::ostream &operator<<(std::ostream &os, const Edge &edge) {
-  os << "Edge: (src_id: " << edge.src_id << ", trg_id: " << edge.trg_id
-     << ", weight: " << edge.weight << ")";
-  return os;
-}
-
-vector<int> Graph::get_offset_for_node() { return offset_for_node_; };
-
-vector<Edge> Graph::get_edges() { return edges_; }
