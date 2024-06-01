@@ -2,10 +2,13 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
 
-struct edge {
-  int src, trg, weight;
+struct Edge {
+  int src_id, trg_id, weight;
 };
+
+std::ostream& operator<<(std::ostream& os, const Edge& edge);
 
 class Graph {
 public:
@@ -14,13 +17,13 @@ public:
 
 private:
   std::vector<int> offset_for_node_;
-  std::vector<edge> edges_;
+  std::vector<Edge> edges_;
 
 public:
-  void parse_graph_file(const std::string &file_path);
+  void parse_graph_file(const std::string &file_path, bool verbose = false);
   std::vector<int> get_offset_for_node();
-  std::vector<edge> get_edges();
+  std::vector<Edge> get_edges();
 
 private:
-  void parse_edges(const std::string &line);
+  void parse_edges(const std::string &line, int &curr_node, int &edge_counter);
 };
