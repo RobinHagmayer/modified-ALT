@@ -1,19 +1,41 @@
+#include "../include/Graph.h"
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <string>
-#include "../include/Graph.h"
 
 using std::cout;
 using std::endl;
 
-int main() {
-  std::string file_path = std::string(RESOURCE_PATH) + "/toy.fmi";
+int main(int argc, char *argv[]) {
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " <graph_file_name>" << endl;
+    return EXIT_FAILURE;
+  }
 
-  Graph toy = Graph();
-  toy.parse_graph_file(file_path);
+  const std::string file_path = std::string(RESOURCE_PATH) + "/" + argv[1];
 
-  cout << "Number of nodes: " << toy.number_of_nodes_ << endl;
-  cout << "Number of edges: " << toy.number_of_edges_ << endl;
+  // Check if graph file exists
+  std::ifstream file(file_path);
+  if (!file) {
+    std::cerr << "Error: File " << file_path << " not found." << endl;
+    return EXIT_FAILURE;
+  }
+  file.close();
+
+  Graph graph = Graph();
+
+  auto start = std::chrono::high_resolution_clock::now();
+  /*graph.parse_graph_file(file_path, true);*/
+  graph.parse_graph_file(file_path);
+  auto end = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
   cout << "----------------------------------------------------------" << endl;
+  cout << "Parsing of graph execution time: " << duration.count() << "ms."
+       << endl;
 
-  cout << "Everything went fine." << endl;
+  cout << "Number of nodes: " << graph.number_of_nodes_ << endl;
+  cout << "Number of edges: " << graph.number_of_edges_ << endl;
+  cout << "----------------------------------------------------------" << endl;
 }
