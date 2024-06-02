@@ -1,13 +1,14 @@
 #include "../include/GraphParser.h"
+
 #include <chrono>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string>
 
+using std::cerr;
 using std::cout;
 using std::endl;
-using std::cerr;
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {
