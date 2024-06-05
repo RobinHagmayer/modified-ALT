@@ -1,4 +1,5 @@
 #include "../include/GraphParser.h"
+#include "cli.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -10,21 +11,14 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    cerr << "Usage: " << argv[0] << " <graph_file_name>" << endl;
-    return EXIT_FAILURE;
-  }
-
-  const std::string file_path = std::string(RESOURCE_PATH) + "/" + argv[1];
-  std::vector<int> node_offsets;
-  std::vector<Edge> edges;
-
+bool parse_graph_file(const std::string &file_path,
+                      std::vector<int> &node_offsets,
+                      std::vector<Edge> &edges) {
   // Check if graph file exists
   std::ifstream file(file_path);
   if (!file) {
     cerr << "Error: File " << file_path << " not found." << endl;
-    return EXIT_FAILURE;
+    return false;
   }
   file.close();
 
@@ -42,7 +36,7 @@ int main(int argc, char *argv[]) {
     if (graph_parser_result.error_message.has_value()) {
       cerr << "Error message: " << *graph_parser_result.error_message << endl;
     }
-    return EXIT_FAILURE;
+    return false;
   }
 
   cout << "----------------------------------------------------------" << endl;
@@ -52,4 +46,24 @@ int main(int argc, char *argv[]) {
   cout << "Number of nodes: " << *graph_parser_result.number_of_nodes << endl;
   cout << "Number of edges: " << *graph_parser_result.number_of_edges << endl;
   cout << "----------------------------------------------------------" << endl;
+
+  return true;
+}
+
+int main(int argc, char *argv[]) {
+  if (argc != 2) {
+    cerr << "Usage: " << argv[0] << " <graph_file_name>" << endl;
+    return EXIT_FAILURE;
+  }
+
+  const std::string file_path = std::string(RESOURCE_PATH) + "/" + argv[1];
+  std::vector<int> node_offsets;
+  std::vector<Edge> edges;
+
+  if (!parse_graph_file(file_path, node_offsets, edges)) {
+    return EXIT_FAILURE;
+  }
+
+  CLI cli;
+  cli.run(node_offsets, edges);
 }

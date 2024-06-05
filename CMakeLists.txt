@@ -12,7 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cpp)
 
 # add_executable(modified-alt ${SOURCES})
-add_executable(modified-alt src/main.cpp src/GraphParser.cpp src/Edge.cpp src/Dijkstra.cpp)
+add_executable(modified-alt src/main.cpp src/GraphParser.cpp src/Edge.cpp src/cli.cpp src/Dijkstra.cpp)
 
 target_include_directories(modified-alt PRIVATE include)
 target_compile_definitions(modified-alt PRIVATE RESOURCE_PATH="${CMAKE_SOURCE_DIR}/resources")
