@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Dijkstra.h"
-#include "Edge.h"
+#include "dijkstra.h"
+#include "edge.h"
 
 #include <vector>
 

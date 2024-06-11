@@ -1,5 +1,5 @@
 #include "cli.h"
-#include "Dijkstra.h"
+#include "dijkstra.h"
 
 #include <chrono>
 #include <cstdlib>

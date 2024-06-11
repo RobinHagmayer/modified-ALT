@@ -8,16 +8,11 @@ set(CMAKE_CXX_FLAGS "-O3")
 # set(CMAKE_CXX_FLAGS "-O0 -g")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-# file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cpp)
+add_subdirectory(src)
 
-# add_executable(modified-alt ${SOURCES})
-add_executable(modified-alt src/main.cpp src/GraphParser.cpp src/Edge.cpp src/cli.cpp src/Dijkstra.cpp)
+add_executable(modified-ALT src/main.cpp)
+target_link_libraries(modified-ALT PRIVATE main)
 
-target_include_directories(modified-alt PRIVATE include)
-target_compile_definitions(modified-alt PRIVATE RESOURCE_PATH="${CMAKE_SOURCE_DIR}/resources")
-
-add_executable(modified-alt-bench src/benchmark.cpp src/GraphParser.cpp src/Edge.cpp src/Dijkstra.cpp)
-
-target_include_directories(modified-alt-bench PRIVATE include)
-target_compile_definitions(modified-alt-bench PRIVATE RESOURCE_PATH="${CMAKE_SOURCE_DIR}/resources")
+add_executable(modified-ALT-bench src/benchmarking/benchmark_runner.cpp)
+target_link_libraries(modified-ALT-bench PRIVATE benchmarking)
+# target_compile_definitions(modified-ALT-bench PRIVATE BENCH_DIR="${CMAKE_SOURCE_DIR}/data/benchs/")

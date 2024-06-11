@@ -1,25 +1,20 @@
-#include "../include/GraphParser.h"
+#include "graph_parser.h"
 
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 
-GraphParserResult GraphParser::parse(const std::string &file_path,
-                                     std::vector<int> &node_offsets,
-                                     std::vector<Edge> &edges, bool verbose) {
-  using std::cout;
+void Graph_parser::parse(const std::string &file_path,
+                         std::vector<int> &node_offsets,
+                         std::vector<Edge> &edges) {
+  using std::cerr;
   using std::endl;
-  using std::nullopt;
-  using std::string;
-  using std::vector;
 
   // Declarations and initializations of variables
-  GraphParserResult graph_parser_result = {false, nullopt, nullopt, nullopt};
-  string line;
+  std::string line;
   int number_of_nodes;
   int number_of_edges;
   int curr_node = 0;
@@ -29,9 +24,8 @@ GraphParserResult GraphParser::parse(const std::string &file_path,
   std::ifstream graph_file(file_path);
 
   if (!graph_file.is_open()) {
-    graph_parser_result.error_message =
-        "Error opening the file: " + file_path + ".";
-    return graph_parser_result;
+    cerr << "Error opening the file: " << file_path << "." << endl;
+    exit(EXIT_FAILURE);
   }
 
   // Ignore comments and empty lines
@@ -44,28 +38,31 @@ GraphParserResult GraphParser::parse(const std::string &file_path,
   // Read number of nodes
   std::istringstream number_of_nodes_stream(line);
   if (!(number_of_nodes_stream >> number_of_nodes)) {
-    graph_parser_result.error_message = "Error reading the number of nodes.";
-    return graph_parser_result;
+    cerr << "Error reading the number of nodes." << endl;
+    exit(EXIT_FAILURE);
   }
 
   // Move to next line
   if (!std::getline(graph_file, line)) {
-    graph_parser_result.error_message = "Unexpected error.";
-    return graph_parser_result;
+    cerr << "Unexpected error between reading number of nodes and number of "
+            "edges."
+         << endl;
+    exit(EXIT_FAILURE);
   }
 
   // Read number of edges
   std::istringstream number_of_edges_stream(line);
   if (!(number_of_edges_stream >> number_of_edges)) {
-    graph_parser_result.error_message = "Error reading the number of edges.";
-    return graph_parser_result;
+    cerr << "Error reading the number of edges." << endl;
+    exit(EXIT_FAILURE);
   }
 
   // Read all nodes
   for (int i = 0; i < number_of_nodes; i++) {
     if (!std::getline(graph_file, line)) {
-      graph_parser_result.error_message = "Unexpected error.";
-      return graph_parser_result;
+      cerr << "Unexpected error at line: " << i + 1 << "." << endl;
+      cerr << "Line content: " << line << endl;
+      exit(EXIT_FAILURE);
     }
     // Do nothing. We don't need any information from the nodes
   }
@@ -77,8 +74,9 @@ GraphParserResult GraphParser::parse(const std::string &file_path,
 
   for (int i = 0; i < number_of_edges; i++) {
     if (!std::getline(graph_file, line)) {
-      graph_parser_result.error_message = "Unexpected error.";
-      return graph_parser_result;
+      cerr << "Unexpected error at line: " << i + 1 << "." << endl;
+      cerr << "Line content: " << line << endl;
+      exit(EXIT_FAILURE);
     }
     // TODO: parse edges
     parse_edges(line, curr_node, edge_counter, node_offsets, edges);
@@ -87,22 +85,17 @@ GraphParserResult GraphParser::parse(const std::string &file_path,
 
   // There should be no more lines at this point
   if (std::getline(graph_file, line)) {
-    graph_parser_result.error_message =
-        "Error. There are still remaining lines in the file.";
-    return graph_parser_result;
+    cerr << "Error. There are still remaining lines in the file." << endl;
+    exit(EXIT_FAILURE);
   }
 
   graph_file.close();
-
-  graph_parser_result.success = true;
-  graph_parser_result.number_of_nodes = number_of_nodes;
-  graph_parser_result.number_of_edges = number_of_edges;
-  return graph_parser_result;
 }
 
-void GraphParser::parse_edges(const std::string &line, int &curr_node,
-                              int &edge_counter, std::vector<int> &node_offsets,
-                              std::vector<Edge> &edges) {
+void Graph_parser::parse_edges(const std::string &line, int &curr_node,
+                               int &edge_counter,
+                               std::vector<int> &node_offsets,
+                               std::vector<Edge> &edges) {
   // Get src_id, trg_id and weight from an input string stream
   std::istringstream line_stream(line);
   int src_id, trg_id, weight;

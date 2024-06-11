@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Edge.h"
+#include "edge.h"
 
 #include <optional>
 #include <string>
