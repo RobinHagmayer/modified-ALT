@@ -3,15 +3,12 @@
 
 #include <climits>
 #include <functional>
-#include <optional>
 #include <queue>
 #include <utility>
 
-DijkstraAllResult Dijkstra::src_to_all(int src) {
+void Dijkstra::src_to_all(int src) {
   using std::pair;
   using std::vector;
-
-  DijkstraAllResult dijkstra_result = {false, std::nullopt, std::nullopt};
 
   // Initialize distances vector, visited array and priority queue
   int number_of_nodes = node_offsets_.size() - 1;
@@ -28,8 +25,7 @@ DijkstraAllResult Dijkstra::src_to_all(int src) {
     int current_node_id = pq.top().second;
     pq.pop();
 
-    // Check if we visited this node already.
-    // We need to do this because of lazy insert into the pq
+    // TODO: remove visited array but rather check distances in pq and dist
     if (visited[current_node_id]) {
       continue;
     }
@@ -39,7 +35,7 @@ DijkstraAllResult Dijkstra::src_to_all(int src) {
     int start = node_offsets_[current_node_id];
     int end = node_offsets_[current_node_id + 1];
     for (int i = start; i < end; i++) {
-      Edge neighbor = edges_[i];
+      const Edge &neighbor = edges_[i];
 
       if (distances[current_node_id] + neighbor.weight <
           distances[neighbor.trg_id]) {
@@ -50,16 +46,12 @@ DijkstraAllResult Dijkstra::src_to_all(int src) {
     }
   }
 
-  dijkstra_result.success = true;
-  dijkstra_result.distances = distances;
-  return dijkstra_result;
+  // TODO: return
 }
 
-DijkstraSingleResult Dijkstra::src_to_trg(int src, int trg) {
+int Dijkstra::src_to_trg(int src, int trg) {
   using std::pair;
   using std::vector;
-
-  DijkstraSingleResult dijkstra_result = {false, std::nullopt, std::nullopt};
 
   // Initialize distances vector, visited array and priority queue
   int number_of_nodes = node_offsets_.size() - 1;
@@ -78,9 +70,7 @@ DijkstraSingleResult Dijkstra::src_to_trg(int src, int trg) {
 
     // Target found. Early return
     if (current_node_id == trg) {
-      dijkstra_result.success = true;
-      dijkstra_result.cost = distances[trg];
-      return dijkstra_result;
+      return distances[trg];
     }
 
     // Check if we visited this node already.
@@ -94,7 +84,7 @@ DijkstraSingleResult Dijkstra::src_to_trg(int src, int trg) {
     int start = node_offsets_[current_node_id];
     int end = node_offsets_[current_node_id + 1];
     for (int i = start; i < end; i++) {
-      Edge neighbor = edges_[i];
+      const Edge &neighbor = edges_[i];
 
       if (distances[current_node_id] + neighbor.weight <
           distances[neighbor.trg_id]) {
@@ -105,6 +95,6 @@ DijkstraSingleResult Dijkstra::src_to_trg(int src, int trg) {
     }
   }
 
-  dijkstra_result.error_message = "Target was not found.";
-  return dijkstra_result;
+  // Target node was not found
+  return -1;
 }

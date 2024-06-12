@@ -20,7 +20,8 @@ void Benchmark::run(const int &argc, const char *const *argv) {
   }
 
   std::vector<std::pair<int, int>> route_requests;
-  Benchmark::Result parsing_result = parse_bench_file(bench_dir + argv[2], route_requests);
+  Benchmark::Result parsing_result =
+      parse_bench_file(bench_dir + argv[2], route_requests);
   if (!parsing_result.ok) {
     std::cerr << parsing_result.message << std::endl;
     exit(EXIT_FAILURE);
@@ -113,19 +114,15 @@ void Benchmark::bench(const std::string &graph_path,
     int trg_id = route_requests[i].second;
 
     auto start_dijsktra = Clock::now();
-    DijkstraSingleResult dijkstra_result = dijsktra.src_to_trg(src_id, trg_id);
+    int path_cost = dijsktra.src_to_trg(src_id, trg_id);
     auto end_dijkstra = Clock::now();
     auto duration_dijkstra =
         std::chrono::duration_cast<Milliseconds>(end_dijkstra - start_dijsktra);
 
-    if (!dijkstra_result.success) {
-      std::cerr << "Error while calculating best route using dijkstra." << endl;
-      exit(EXIT_FAILURE);
-    }
     cout << "\r" << i + 1 << "%" << std::flush;
 
     dijkstra_time += duration_dijkstra.count();
-    path_costs.push_back(*dijkstra_result.cost);
+    path_costs.push_back(path_cost);
   }
   cout << endl;
 

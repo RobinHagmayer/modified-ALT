@@ -25,15 +25,10 @@ void CLI::handle_one_to_all(Dijkstra &dijkstra) {
   std::cin >> src_id;
 
   auto start = std::chrono::high_resolution_clock::now();
-  DijkstraAllResult result = dijkstra.src_to_all(src_id);
+  dijkstra.src_to_all(src_id);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-  if (!result.success) {
-    std::cerr << *result.error_message << std::endl;
-    exit(EXIT_FAILURE);
-  }
 
   std::cout << "\nDijkstra one to all execution time: " << duration.count()
             << "ms." << std::endl;
@@ -51,17 +46,12 @@ void CLI::handle_src_to_trg(Dijkstra &dijkstra) {
   std::cin >> src_id >> trg_id;
 
   auto start = std::chrono::high_resolution_clock::now();
-  DijkstraSingleResult result = dijkstra.src_to_trg(src_id, trg_id);
+  int path_cost = dijkstra.src_to_trg(src_id, trg_id);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-  if (!result.success) {
-    std::cerr << *result.error_message << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  std::cout << "\nCost: " << *result.cost << std::endl;
+  std::cout << "\nCost: " << path_cost << std::endl;
   std::cout << "Dijkstra source to target execution time: " << duration.count()
             << "ms." << std::endl;
 
