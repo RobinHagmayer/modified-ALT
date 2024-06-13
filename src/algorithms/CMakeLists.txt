@@ -3,6 +3,8 @@ project(Modified-ALT)
 add_library(algorithms
     dijkstra.cpp
     dijkstra.h
+    ALT.cpp
+    ALT.h
 )
 
 target_include_directories(algorithms PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

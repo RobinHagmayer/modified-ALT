@@ -55,7 +55,7 @@ void App::read_graph(const std::string &file_path,
 
   cout << "Starting reading in the graph..." << endl;
   auto start = Clock::now();
-  graph_parser.parse(file_path, node_offsets, edges);
+  graph_parser.parse(file_path, node_offsets, edges, false);
   auto end = Clock::now();
   auto duration = std::chrono::duration_cast<Milliseconds>(end - start);
 

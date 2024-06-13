@@ -19,6 +19,8 @@ private:
   Result validate_cla(const int &argc, const char *const *argv);
   Result parse_bench_file(const std::string &bench_path,
                           std::vector<std::pair<int, int>> &route_requests);
-  void bench(const std::string &graph_path,
-             const std::vector<std::pair<int, int>> &route_requests);
+  void bench_dijkstra(const std::string &graph_path,
+                      const std::vector<std::pair<int, int>> &route_requests);
+  void bench_alt(const std::string &graph_path,
+                 const std::vector<std::pair<int, int>> &route_requests);
 };

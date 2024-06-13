@@ -9,7 +9,7 @@
 
 void Graph_parser::parse(const std::string &file_path,
                          std::vector<int> &node_offsets,
-                         std::vector<Edge> &edges) {
+                         std::vector<Edge> &edges, bool reverse) {
   using std::cerr;
   using std::endl;
 
@@ -78,8 +78,8 @@ void Graph_parser::parse(const std::string &file_path,
       cerr << "Line content: " << line << endl;
       exit(EXIT_FAILURE);
     }
-    // TODO: parse edges
-    parse_edges(line, curr_node, edge_counter, node_offsets, edges);
+
+    parse_edges(line, curr_node, edge_counter, node_offsets, edges, reverse);
   }
   node_offsets.push_back(number_of_edges);
 
@@ -95,27 +95,43 @@ void Graph_parser::parse(const std::string &file_path,
 void Graph_parser::parse_edges(const std::string &line, int &curr_node,
                                int &edge_counter,
                                std::vector<int> &node_offsets,
-                               std::vector<Edge> &edges) {
-  // Get src_id, trg_id and weight from an input string stream
+                               std::vector<Edge> &edges, bool reverse) {
   std::istringstream line_stream(line);
   int src_id, trg_id, weight;
-  line_stream >> src_id >> trg_id >> weight;
 
-  // Create an edge from the data and store it in the edges_ vector
-  Edge edge = {src_id, trg_id, weight};
-  edges.push_back(edge);
+  if (reverse) {
+    line_stream >> trg_id >> src_id >> weight;
+    Edge edge = {trg_id, src_id, weight};
+    edges.push_back(edge);
 
-  // Create the offset for nodes vector
-
-  if (curr_node + 1 == src_id) {
-    node_offsets.push_back(edge_counter);
-    curr_node++;
-  } else if (curr_node + 1 < src_id) {
-    int nodes_to_fill = src_id - curr_node;
-    for (int i = 0; i < nodes_to_fill; i++) {
+    // Create the offset for nodes vector
+    if (curr_node + 1 == trg_id) {
       node_offsets.push_back(edge_counter);
+      curr_node++;
+    } else if (curr_node + 1 < trg_id) {
+      int nodes_to_fill = trg_id - curr_node;
+      for (int i = 0; i < nodes_to_fill; i++) {
+        node_offsets.push_back(edge_counter);
+      }
+      curr_node = trg_id;
     }
-    curr_node = src_id;
+  } else {
+    line_stream >> src_id >> trg_id >> weight;
+    Edge edge = {src_id, trg_id, weight};
+    edges.push_back(edge);
+
+    // Create the offset for nodes vector
+    if (curr_node + 1 == src_id) {
+      node_offsets.push_back(edge_counter);
+      curr_node++;
+    } else if (curr_node + 1 < src_id) {
+      int nodes_to_fill = src_id - curr_node;
+      for (int i = 0; i < nodes_to_fill; i++) {
+        node_offsets.push_back(edge_counter);
+      }
+      curr_node = src_id;
+    }
   }
+
   edge_counter++;
 }
