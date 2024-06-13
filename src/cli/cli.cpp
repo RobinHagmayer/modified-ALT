@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <thread>
 
 void CLI::print_menu() {
@@ -24,8 +25,11 @@ void CLI::handle_one_to_all(Dijkstra &dijkstra) {
   std::cout << "\nPlease enter the source node id: " << std::endl;
   std::cin >> src_id;
 
+  int number_of_nodes = dijkstra.node_offsets_.size() - 1;
+  std::vector<int> distances(number_of_nodes, std::numeric_limits<int>::max());
+
   auto start = std::chrono::high_resolution_clock::now();
-  dijkstra.src_to_all(src_id);
+  dijkstra.src_to_all(src_id, distances);
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
