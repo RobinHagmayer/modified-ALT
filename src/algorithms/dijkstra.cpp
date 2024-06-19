@@ -80,12 +80,11 @@ int Dijkstra::src_to_trg(int src, int trg) {
     int end = node_offsets_[current_node_id + 1];
     for (int i = start; i < end; i++) {
       const Edge &neighbor = edges_[i];
+      const int new_cost = distances[current_node_id] + neighbor.weight;
 
-      if (distances[current_node_id] + neighbor.weight <
-          distances[neighbor.trg_id]) {
-        distances[neighbor.trg_id] =
-            distances[current_node_id] + neighbor.weight;
-        pq.push({distances[neighbor.trg_id], neighbor.trg_id});
+      if (new_cost < distances[neighbor.trg_id]) {
+        distances[neighbor.trg_id] = new_cost;
+        pq.push({new_cost, neighbor.trg_id});
       }
     }
   }
