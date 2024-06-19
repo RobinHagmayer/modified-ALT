@@ -204,7 +204,7 @@ void Benchmark::bench_alt(
   std::vector<int> landmarks;
   std::unordered_map<int, std::vector<int>> landmark_distances;
 
-  Random_landmarks::select_landmarks(20, node_offsets, landmarks);
+  Random_landmarks::select_landmarks(10, node_offsets, landmarks);
   Random_landmarks::preprocess_landmarks(dijsktra_rev, landmarks,
                                          landmark_distances);
 

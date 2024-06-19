@@ -53,6 +53,7 @@ int Dijkstra::src_to_trg(int src, int trg) {
                       std::greater<pair<int, int>>>
       pq;
   pq.push({0, src});
+  int nodes_checked = 0;
 
   while (!pq.empty()) {
     // Get the closest node to the source
@@ -62,6 +63,7 @@ int Dijkstra::src_to_trg(int src, int trg) {
 
     // Target found. Early return
     if (current_node_id == trg) {
+      std::cout << "Nodes checked: " << nodes_checked << std::endl;
       return distances[trg];
     }
 
@@ -71,6 +73,7 @@ int Dijkstra::src_to_trg(int src, int trg) {
     if (current_node_dist > distances[current_node_id]) {
       continue;
     }
+    nodes_checked++;
 
     // Check the neighbors of the current node
     int start = node_offsets_[current_node_id];
