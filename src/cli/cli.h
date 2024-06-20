@@ -7,8 +7,8 @@
 
 class CLI {
 public:
-  void run(std::vector<int> &node_offsets,
-           std::vector<Edge> &edges);
+  void run(std::vector<int> &node_offsets, std::vector<Edge> &edges,
+           std::vector<int> &node_offsets_rev, std::vector<Edge> &edges_rev);
 
 private:
   void print_menu();

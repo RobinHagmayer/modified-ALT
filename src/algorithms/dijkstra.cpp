@@ -41,19 +41,19 @@ void Dijkstra::src_to_all(int src, std::vector<int> &distances) {
   }
 }
 
-int Dijkstra::src_to_trg(int src, int trg) {
+int Dijkstra::src_to_trg(int src, int trg, int &nodes_checked) {
   using std::pair;
   using std::vector;
 
   // Initialize distances vector, visited array and priority queue
   int number_of_nodes = node_offsets_.size() - 1;
+  /*vector<bool> visited(number_of_nodes, false);*/
   vector<int> distances(number_of_nodes, INT_MAX);
   distances[src] = 0;
   std::priority_queue<pair<int, int>, vector<pair<int, int>>,
                       std::greater<pair<int, int>>>
       pq;
   pq.push({0, src});
-  int nodes_checked = 0;
 
   while (!pq.empty()) {
     // Get the closest node to the source
@@ -63,7 +63,6 @@ int Dijkstra::src_to_trg(int src, int trg) {
 
     // Target found. Early return
     if (current_node_id == trg) {
-      std::cout << "Nodes checked: " << nodes_checked << std::endl;
       return distances[trg];
     }
 
@@ -73,6 +72,10 @@ int Dijkstra::src_to_trg(int src, int trg) {
     if (current_node_dist > distances[current_node_id]) {
       continue;
     }
+    /*if (visited[current_node_id]) {*/
+    /*  continue;*/
+    /*}*/
+    /*visited[current_node_id] = true;*/
     nodes_checked++;
 
     // Check the neighbors of the current node

@@ -22,10 +22,13 @@ void App::run(const int &argc, const char *const *argv) {
 
   std::vector<int> node_offsets;
   std::vector<Edge> edges;
-  read_graph(graph_dir + argv[1], node_offsets, edges);
+  std::vector<int> node_offsets_rev;
+  std::vector<Edge> edges_rev;
+  read_graph(graph_dir + argv[1], node_offsets, edges, node_offsets_rev,
+             edges_rev);
 
   CLI cli;
-  cli.run(node_offsets, edges);
+  cli.run(node_offsets, edges, node_offsets_rev, edges_rev);
 }
 
 App::Result App::validate_cla(const int &argc, const char *const *argv) {
@@ -45,7 +48,9 @@ App::Result App::validate_cla(const int &argc, const char *const *argv) {
 }
 
 void App::read_graph(const std::string &file_path,
-                     std::vector<int> &node_offsets, std::vector<Edge> &edges) {
+                     std::vector<int> &node_offsets, std::vector<Edge> &edges,
+                     std::vector<int> &node_offsets_rev,
+                     std::vector<Edge> &edges_rev) {
   using Clock = std::chrono::high_resolution_clock;
   using Milliseconds = std::chrono::milliseconds;
   using std::cout;
@@ -62,5 +67,15 @@ void App::read_graph(const std::string &file_path,
   cout << "----------------------------------------------------------" << endl;
   cout << "Parsing of graph execution time: " << duration.count() << "ms."
        << endl;
+  cout << "----------------------------------------------------------" << endl;
+
+  auto start_parser_rev = Clock::now();
+  graph_parser.parse(file_path, node_offsets_rev, edges_rev, true);
+  auto end_parser_rev = Clock::now();
+  auto duration_parser_rev = std::chrono::duration_cast<Milliseconds>(
+      end_parser_rev - start_parser_rev);
+
+  cout << "Parsing of reverse graph execution time: "
+       << duration_parser_rev.count() << "ms." << endl;
   cout << "----------------------------------------------------------" << endl;
 }

@@ -5,6 +5,7 @@
 #include "random_landmarks.h"
 
 #include <chrono>
+#include <climits>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -112,6 +113,7 @@ void Benchmark::bench_dijkstra(
   cout << "Parsing of graph execution time: " << duration_parser.count()
        << "ms." << endl;
   cout << "----------------------------------------" << endl;
+
   cout << "Starting route request benchmark." << endl;
   cout << "----------------------------------------" << endl;
 
@@ -119,25 +121,45 @@ void Benchmark::bench_dijkstra(
   std::vector<int> path_costs_dijkstra;
   Dijkstra dijsktra(node_offsets, edges);
 
+  /*std::vector<int> distances(node_offsets.size() - 1, INT_MAX);*/
+  /*dijsktra.src_to_all(12, distances);*/
+  /*for (int i = 0; i < distances.size(); i++) {*/
+  /*  if (distances[i] != INT_MAX) {*/
+  /*    cout << "From node 12 to node " << i << " costs: " << distances[i]*/
+  /*         << endl;*/
+  /*  }*/
+  /*}*/
+  /*return;*/
+
+  int search_space = 0;
+
   for (int i = 0; i < route_requests.size(); i++) {
     int src_id = route_requests[i].first;
     int trg_id = route_requests[i].second;
+    int nodes_checked = 0;
 
     auto start_dijsktra = Clock::now();
-    int path_cost_dijkstra = dijsktra.src_to_trg(src_id, trg_id);
+    int path_cost_dijkstra = dijsktra.src_to_trg(src_id, trg_id, nodes_checked);
     auto end_dijkstra = Clock::now();
     auto duration_dijkstra =
         std::chrono::duration_cast<Milliseconds>(end_dijkstra - start_dijsktra);
 
     cout << "\r" << i + 1 << "%" << std::flush;
 
+    search_space += nodes_checked;
+    search_space /= i + 1;
+
     dijkstra_time += duration_dijkstra.count();
     path_costs_dijkstra.push_back(path_cost_dijkstra);
   }
   cout << endl;
 
+  cout << "----------------------------------------" << endl;
   cout << "Dijkstra average execution time: "
        << dijkstra_time / route_requests.size() << "ms." << endl;
+  cout << "----------------------------------------" << endl;
+
+  cout << "Dijkstra average search space: " << search_space << endl;
   cout << "----------------------------------------" << endl;
 
   std::ofstream route_costs_dijkstra_file(std::string(BENCH_DIR) +
@@ -162,7 +184,7 @@ void Benchmark::bench_alt(
   using std::cout;
   using std::endl;
 
-  cout << "Starting Dijkstra benchmark." << endl;
+  cout << "Starting ALT benchmark." << endl;
   cout << "----------------------------------------" << endl;
 
   cout << "Starting graph parsing benchmark." << endl;
@@ -199,36 +221,47 @@ void Benchmark::bench_alt(
   cout << "----------------------------------------" << endl;
 
   long alt_time = 0;
-  Dijkstra dijsktra_rev(node_offsets_rev, edges_rev);
+  Dijkstra dijkstra_forward(node_offsets, edges);
+  Dijkstra dijkstra_rev(node_offsets_rev, edges_rev);
   std::vector<int> path_costs_alt;
-  std::vector<int> landmarks;
-  std::unordered_map<int, std::vector<int>> landmark_distances;
+  std::unordered_map<int, std::vector<int>> landmark_distances_forward;
+  std::unordered_map<int, std::vector<int>> landmark_distances_reverse;
+  int search_space = 0;
 
-  Random_landmarks::select_landmarks(16, node_offsets, landmarks);
-  Random_landmarks::preprocess_landmarks(dijsktra_rev, landmarks,
-                                         landmark_distances);
+  Random_landmarks::preprocess(16, dijkstra_forward, dijkstra_rev,
+                               landmark_distances_forward,
+                               landmark_distances_reverse);
 
-  ALT alt(node_offsets, edges, landmark_distances);
+  ALT alt(node_offsets, edges, landmark_distances_forward,
+          landmark_distances_reverse);
 
   for (int i = 0; i < route_requests.size(); i++) {
     int src_id = route_requests[i].first;
     int trg_id = route_requests[i].second;
+    int nodes_checked = 0;
 
     auto start_alt = Clock::now();
-    int path_cost_alt = alt.src_to_trg(src_id, trg_id);
+    int path_cost_alt = alt.src_to_trg(src_id, trg_id, nodes_checked);
     auto end_alt = Clock::now();
     auto duration_alt =
         std::chrono::duration_cast<Milliseconds>(end_alt - start_alt);
 
     cout << "\r" << i + 1 << "%" << std::flush;
 
+    search_space += nodes_checked;
+    search_space /= i + 1;
+
     alt_time += duration_alt.count();
     path_costs_alt.push_back(path_cost_alt);
   }
   cout << endl;
 
+  cout << "----------------------------------------" << endl;
   cout << "ALT average execution time: " << alt_time / route_requests.size()
        << "ms." << endl;
+  cout << "----------------------------------------" << endl;
+
+  cout << "ALT average search space: " << search_space << endl;
   cout << "----------------------------------------" << endl;
 
   std::ofstream route_costs_alt_file(std::string(BENCH_DIR) +

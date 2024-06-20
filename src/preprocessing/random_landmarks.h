@@ -7,10 +7,9 @@
 
 class Random_landmarks {
 public:
-  static void select_landmarks(const int number_of_landmarks,
-                               const std::vector<int> &node_offsets,
-                               std::vector<int> &landmarks);
-  static void preprocess_landmarks(
-      Dijkstra &dijkstra, const std::vector<int> &landmarks,
-      std::unordered_map<int, std::vector<int>> &landmark_distances);
+  static void preprocess(
+      const int &number_of_landmarks, Dijkstra &dijkstra_forward,
+      Dijkstra &dijkstra_reverse,
+      std::unordered_map<int, std::vector<int>> &landmark_distances_forward,
+      std::unordered_map<int, std::vector<int>> &landmark_distances_reverse);
 };

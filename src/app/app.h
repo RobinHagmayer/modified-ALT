@@ -19,5 +19,6 @@ private:
 
   Result validate_cla(const int &argc, const char *const *argv);
   void read_graph(const std::string &file_path, std::vector<int> &node_offsets,
-                  std::vector<Edge> &edges);
+                  std::vector<Edge> &edges, std::vector<int> &node_offsets_rev,
+                  std::vector<Edge> &edges_rev);
 };
