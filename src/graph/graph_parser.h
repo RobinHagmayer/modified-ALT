@@ -11,7 +11,9 @@ public:
              std::vector<Edge> &edges, bool reverse);
 
 private:
-  void parse_edges(const std::string &line, int &curr_node, int &edge_counter,
-                   std::vector<int> &node_offsets, std::vector<Edge> &edges,
+  void parse_edges(const std::string &line, std::vector<Edge> &edges,
                    bool reverse);
+
+  void create_offset_array(const std::vector<Edge> &edges,
+                           std::vector<int> &node_offsets);
 };

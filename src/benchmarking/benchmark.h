@@ -23,4 +23,5 @@ private:
                       const std::vector<std::pair<int, int>> &route_requests);
   void bench_alt(const std::string &graph_path,
                  const std::vector<std::pair<int, int>> &route_requests);
+  void debug(const std::string &graph_path);
 };

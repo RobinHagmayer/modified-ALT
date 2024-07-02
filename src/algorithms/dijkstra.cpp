@@ -20,7 +20,6 @@ void Dijkstra::src_to_all(int src, std::vector<int> &distances) {
     int current_node_id = pq.top().second;
     pq.pop();
 
-    // TODO: remove visited array but rather check distances in pq and dist
     if (current_node_dist > distances[current_node_id]) {
       continue;
     }
@@ -47,7 +46,6 @@ int Dijkstra::src_to_trg(int src, int trg, int &nodes_checked) {
 
   // Initialize distances vector, visited array and priority queue
   int number_of_nodes = node_offsets_.size() - 1;
-  /*vector<bool> visited(number_of_nodes, false);*/
   vector<int> distances(number_of_nodes, INT_MAX);
   distances[src] = 0;
   std::priority_queue<pair<int, int>, vector<pair<int, int>>,
@@ -72,10 +70,6 @@ int Dijkstra::src_to_trg(int src, int trg, int &nodes_checked) {
     if (current_node_dist > distances[current_node_id]) {
       continue;
     }
-    /*if (visited[current_node_id]) {*/
-    /*  continue;*/
-    /*}*/
-    /*visited[current_node_id] = true;*/
     nodes_checked++;
 
     // Check the neighbors of the current node

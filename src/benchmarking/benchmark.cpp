@@ -34,6 +34,7 @@ void Benchmark::run(const int &argc, const char *const *argv) {
   bench_dijkstra(graph_dir + argv[1], route_requests);
   std::cout << std::endl;
   bench_alt(graph_dir + argv[1], route_requests);
+  /*debug(graph_dir + argv[1]);*/
 }
 
 Benchmark::Result Benchmark::validate_cla(const int &argc,
@@ -276,4 +277,34 @@ void Benchmark::bench_alt(
   }
 
   route_costs_alt_file.close();
+}
+
+void Benchmark::debug(const std::string &graph_path) {
+  Graph_parser gp;
+  std::vector<int> node_offsets;
+  std::vector<Edge> edges;
+  std::vector<int> node_offsets_rev;
+  std::vector<Edge> edges_rev;
+
+  gp.parse(graph_path, node_offsets, edges, false);
+  gp.parse(graph_path, node_offsets_rev, edges_rev, true);
+
+  int number_of_nodes = node_offsets.size() - 1;
+
+  Dijkstra dijkstra(node_offsets, edges);
+  Dijkstra dijkstra_rev(node_offsets_rev, edges_rev);
+
+  std::vector<int> distances(number_of_nodes, std::numeric_limits<int>::max());
+  dijkstra.src_to_all(3, distances);
+
+  std::vector<int> distances_rev(number_of_nodes, std::numeric_limits<int>::max());
+  dijkstra_rev.src_to_all(3, distances_rev);
+
+  for (int i = 0; i < distances.size(); i++) {
+    std::cout << "From node 3 to node " << i << ": " << distances[i] << std::endl;
+  }
+
+  for (int i = 0; i < distances_rev.size(); i++) {
+    std::cout << "From node " << i << " to node 3: " << distances_rev[i] << std::endl;
+  }
 }

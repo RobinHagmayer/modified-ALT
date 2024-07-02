@@ -21,8 +21,12 @@ int ALT::src_to_trg(int src_id, int trg_id, int &nodes_checked) {
   while (!pq.empty()) {
     // Get the closest node to the source
     int current_node_id = pq.top().second;
+    int priority = pq.top().first;
     pq.pop();
 
+    /*if (distances[trg_id] <= priority) {*/
+    /*  return distances[trg_id];*/
+    /*}*/
     // Target found. Early return
     if (current_node_id == trg_id) {
       return distances[trg_id];
@@ -57,10 +61,10 @@ int ALT::h(int node_id, int trg_id) {
   int max = 0;
 
   for (const auto &[landmark, distances] : landmark_distances_reverse_) {
-    /*if (distances[node_id] == INT_MAX || distances[trg_id] == INT_MAX) {*/
-    /*  std::cout << "Landmark " << landmark << " has d(v,l) = INT_MAX" << std::endl;*/
-    /*}*/
-    int dist = std::abs(distances[node_id] - distances[trg_id]);
+    if (distances[node_id] == INT_MAX || distances[trg_id] == INT_MAX) {
+      continue;
+    }
+    int dist = distances[node_id] - distances[trg_id];
 
     if (dist > max) {
       max = dist;
@@ -77,8 +81,8 @@ int ALT::h2(int node_id, int trg_id) {
   for (const auto &[landmark, distances_forward] : landmark_distances_forward_) {
     auto distances_reverse = landmark_distances_reverse_.at(landmark);
 
-    int dist_forward = std::abs(distances_forward[trg_id] - distances_forward[node_id]);
-    int dist_reverse = std::abs(distances_reverse[node_id] - distances_reverse[trg_id]);
+    int dist_forward = distances_forward[trg_id] - distances_forward[node_id];
+    int dist_reverse = distances_reverse[node_id] - distances_reverse[trg_id];
 
     if (dist_forward > max_forward) {
       max_forward = dist_forward;

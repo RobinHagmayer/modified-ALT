@@ -1,5 +1,6 @@
 #include "graph_parser.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -17,8 +18,6 @@ void Graph_parser::parse(const std::string &file_path,
   std::string line;
   int number_of_nodes;
   int number_of_edges;
-  int curr_node = 0;
-  int edge_counter = 0;
 
   // Open input file stream
   std::ifstream graph_file(file_path);
@@ -70,7 +69,6 @@ void Graph_parser::parse(const std::string &file_path,
   // Read all edges
   edges.reserve(number_of_edges);
   node_offsets.reserve(number_of_nodes + 1);
-  node_offsets.push_back(0);
 
   for (int i = 0; i < number_of_edges; i++) {
     if (!std::getline(graph_file, line)) {
@@ -79,9 +77,8 @@ void Graph_parser::parse(const std::string &file_path,
       exit(EXIT_FAILURE);
     }
 
-    parse_edges(line, curr_node, edge_counter, node_offsets, edges, reverse);
+    parse_edges(line, edges, reverse);
   }
-  node_offsets.push_back(number_of_edges);
 
   // There should be no more lines at this point
   if (std::getline(graph_file, line)) {
@@ -90,48 +87,53 @@ void Graph_parser::parse(const std::string &file_path,
   }
 
   graph_file.close();
+
+  // Sort the edges and create the offset array
+  std::sort(edges.begin(), edges.end(), [](const Edge &a, const Edge &b) {
+    if (a.src_id == b.src_id) {
+      return a.trg_id < b.trg_id;
+    }
+    return a.src_id < b.src_id;
+  });
+
+  create_offset_array(edges, node_offsets);
+  node_offsets.push_back(number_of_edges);
 }
 
-void Graph_parser::parse_edges(const std::string &line, int &curr_node,
-                               int &edge_counter,
-                               std::vector<int> &node_offsets,
+void Graph_parser::parse_edges(const std::string &line,
                                std::vector<Edge> &edges, bool reverse) {
   std::istringstream line_stream(line);
   int src_id, trg_id, weight;
 
   if (reverse) {
-    line_stream >> trg_id >> src_id >> weight;
-    Edge edge = {trg_id, src_id, weight};
+    line_stream >> src_id >> trg_id >> weight;
+    Edge edge(trg_id, src_id, weight);
     edges.push_back(edge);
-
-    // Create the offset for nodes vector
-    if (curr_node + 1 == trg_id) {
-      node_offsets.push_back(edge_counter);
-      curr_node++;
-    } else if (curr_node + 1 < trg_id) {
-      int nodes_to_fill = trg_id - curr_node;
-      for (int i = 0; i < nodes_to_fill; i++) {
-        node_offsets.push_back(edge_counter);
-      }
-      curr_node = trg_id;
-    }
   } else {
     line_stream >> src_id >> trg_id >> weight;
-    Edge edge = {src_id, trg_id, weight};
+    Edge edge(src_id, trg_id, weight);
     edges.push_back(edge);
+  }
+}
 
-    // Create the offset for nodes vector
+void Graph_parser::create_offset_array(const std::vector<Edge> &edges,
+                                       std::vector<int> &node_offsets) {
+  int curr_node = edges[0].src_id;
+  node_offsets.push_back(curr_node);
+
+  for (int i = 0; i < edges.size(); i++) {
+    int src_id = edges[i].src_id;
+    int trg_id = edges[i].trg_id;
+
     if (curr_node + 1 == src_id) {
-      node_offsets.push_back(edge_counter);
+      node_offsets.push_back(i);
       curr_node++;
-    } else if (curr_node + 1 < src_id) {
+    } else if(curr_node + 1 < src_id) {
       int nodes_to_fill = src_id - curr_node;
-      for (int i = 0; i < nodes_to_fill; i++) {
-        node_offsets.push_back(edge_counter);
+      for (int j = 0; j < nodes_to_fill; j++) {
+        node_offsets.push_back(i);
       }
       curr_node = src_id;
     }
   }
-
-  edge_counter++;
 }
