@@ -10,6 +10,7 @@ void Random_landmarks::preprocess(
     Dijkstra &dijkstra_reverse,
     std::unordered_map<int, std::vector<int>> &landmark_distances_forward,
     std::unordered_map<int, std::vector<int>> &landmark_distances_reverse) {
+  std::cout << "Starting preprocessing..." << std::endl;
   int number_of_nodes = dijkstra_forward.node_offsets_.size() - 1;
 
   std::random_device seed;
@@ -18,7 +19,6 @@ void Random_landmarks::preprocess(
 
   for (int i = 0; i < number_of_landmarks; i++) {
     int random_landmark = distribution(rng);
-    /*int random_landmark = landmarks[i];*/
     /*std::vector<int> distances_forward(number_of_nodes,*/
     /*                                   std::numeric_limits<int>::max());*/
     std::vector<int> distances_reverse(number_of_nodes,
@@ -30,6 +30,6 @@ void Random_landmarks::preprocess(
     dijkstra_reverse.src_to_all(random_landmark, distances_reverse);
     landmark_distances_reverse[random_landmark] = distances_reverse;
 
-    /*std::cout << "Landmark: " << random_landmark << std::endl;*/
+    std::cout << "Preprocessing finished!" << std::endl;
   }
 }

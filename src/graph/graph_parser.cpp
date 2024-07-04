@@ -128,7 +128,7 @@ void Graph_parser::create_offset_array(const std::vector<Edge> &edges,
     if (curr_node + 1 == src_id) {
       node_offsets.push_back(i);
       curr_node++;
-    } else if(curr_node + 1 < src_id) {
+    } else if (curr_node + 1 < src_id) {
       int nodes_to_fill = src_id - curr_node;
       for (int j = 0; j < nodes_to_fill; j++) {
         node_offsets.push_back(i);
@@ -136,4 +136,62 @@ void Graph_parser::create_offset_array(const std::vector<Edge> &edges,
       curr_node = src_id;
     }
   }
+}
+
+void Graph_parser::serialize(const std::string &file_path,
+                             const std::vector<int> &node_offsets,
+                             const std::vector<Edge> &edges) {
+  std::ofstream output_file_stream(file_path, std::ios::binary);
+
+  if (!output_file_stream) {
+    std::cerr << "Error opening the file: " << file_path << " for writing."
+              << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Write node_offsets size then data
+  size_t node_offsets_size = node_offsets.size();
+  output_file_stream.write(reinterpret_cast<const char *>(&node_offsets_size),
+                           sizeof(node_offsets_size));
+  output_file_stream.write(reinterpret_cast<const char *>(node_offsets.data()),
+                           node_offsets_size * sizeof(int));
+
+  // Write edges size then data
+  size_t edges_size = edges.size();
+  output_file_stream.write(reinterpret_cast<const char *>(&edges_size),
+                           sizeof(edges_size));
+  output_file_stream.write(reinterpret_cast<const char *>(edges.data()),
+                           edges_size * sizeof(Edge));
+
+  output_file_stream.close();
+}
+
+void Graph_parser::deserialize(const std::string &file_path,
+                               std::vector<int> &node_offsets,
+                               std::vector<Edge> &edges) {
+  std::ifstream input_file_stream(file_path, std::ios::binary);
+
+  if (!input_file_stream) {
+    std::cerr << "Error opening the file: " << file_path << " for reading."
+              << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // Read node_offsets size then data
+  size_t node_offsets_size;
+  input_file_stream.read(reinterpret_cast<char *>(&node_offsets_size),
+                         sizeof(node_offsets_size));
+  node_offsets.resize(node_offsets_size);
+  input_file_stream.read(reinterpret_cast<char *>(node_offsets.data()),
+                         node_offsets_size * sizeof(int));
+
+  // Read edges size then data
+  size_t edges_size;
+  input_file_stream.read(reinterpret_cast<char *>(&edges_size),
+                         sizeof(edges_size));
+  edges.resize(edges_size);
+  input_file_stream.read(reinterpret_cast<char *>(edges.data()),
+                         edges_size * sizeof(Edge));
+
+  input_file_stream.close();
 }
