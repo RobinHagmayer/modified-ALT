@@ -1,11 +1,11 @@
 #include "benchmark.h"
 #include "ALT.h"
+#include "benchmark_file_generator.h"
 #include "dijkstra.h"
 #include "farthest.h"
 #include "graph_parser.h"
-#include "new.h"
-#include "random_landmarks.h"
 
+#include <algorithm>
 #include <chrono>
 #include <climits>
 #include <cstdlib>
@@ -14,114 +14,146 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 
 const std::string Benchmark::graph_dir = std::string(GRAPH_DIR);
 const std::string Benchmark::bench_dir = std::string(BENCH_DIR);
 
 void Benchmark::run(const int &argc, const char *const *argv) {
-  bool create_binary_graph = false;
-  bool create_binary_preprocessing = false;
-  bool skip_dijkstra = false;
+  /*debug(argv[1]);*/
+  /*return;*/
+
+  std::string graph;
   std::string graph_path;
   std::string graph_path_rev;
   std::string bench_path;
 
-  handle_cla(argc, argv, create_binary_graph, create_binary_preprocessing,
-             skip_dijkstra, graph_path, graph_path_rev, bench_path);
+  bool use_random_bench = true;
+  bool bench_dijkstra_bool = false;
 
   Graph_parser gp;
   std::vector<int> node_offsets;
   std::vector<Edge> edges;
   std::vector<int> node_offsets_rev;
   std::vector<Edge> edges_rev;
+  std::vector<std::vector<int>> landmark_distances_forward;
+  std::vector<std::vector<int>> landmark_distances_reverse;
 
-  if (create_binary_graph) {
-    gp.parse(graph_path + ".fmi", node_offsets, edges, false);
-    gp.serialize(graph_path + ".bin", node_offsets, edges);
-
-    gp.parse(graph_path + ".fmi", node_offsets_rev, edges_rev, true);
-    gp.serialize(graph_path + "_rev.bin", node_offsets_rev, edges_rev);
-
-    std::cout << "Binary files created successfully!\n";
+  if (argc <= 1) {
+    print_help();
     exit(EXIT_SUCCESS);
+  } else if (argc == 2) {
+    std::string option = argv[1];
+    std::string help_option = "-h";
+
+    if (option == help_option) {
+      print_help();
+      exit(EXIT_SUCCESS);
+    }
+
+    // Default usage.
+    // Uses binary graph and preprocessing files.
+    // Uses random benchmarks.
+    graph = argv[1];
+    graph_path = graph_dir + argv[1];
+    graph_path_rev = graph_dir + argv[1] + "_rev.bin";
+    bench_path = bench_dir + "random_" + argv[1] + ".que";
+  } else if (argc == 3) {
+    std::string option = argv[1];
+    std::string b_option = "-b";
+    std::string p_option = "-p";
+    std::string d_option = "-d";
+
+    if (option == b_option) {
+      // Create binary graph files
+      graph_path = graph_dir + argv[2];
+      use_random_bench = false;
+
+      gp.parse(graph_path + ".fmi", node_offsets, edges, false);
+      gp.serialize(graph_path + ".bin", node_offsets, edges);
+
+      gp.parse(graph_path + ".fmi", node_offsets_rev, edges_rev, true);
+      gp.serialize(graph_path + "_rev.bin", node_offsets_rev, edges_rev);
+
+      std::cout << "Binary files created successfully!\n";
+      exit(EXIT_SUCCESS);
+    } else if (option == p_option) {
+      // Create binary preprocessing files
+      graph_path = graph_dir + argv[2];
+      use_random_bench = false;
+
+      gp.deserialize(graph_path + ".bin", node_offsets, edges);
+      gp.deserialize(graph_path + "_rev.bin", node_offsets_rev, edges_rev);
+
+      Dijkstra dijkstra_forward(node_offsets, edges);
+      Dijkstra dijkstra_reverse(node_offsets_rev, edges_rev);
+      Farthest::preprocess(16, dijkstra_forward, dijkstra_reverse,
+                           landmark_distances_forward,
+                           landmark_distances_reverse);
+
+      Farthest::serialize(graph_path + "_pre.bin", landmark_distances_reverse);
+      exit(EXIT_SUCCESS);
+    } else if (option == d_option) {
+      // Bench Dijkstra's algorithm and ALT
+      bench_dijkstra_bool = true;
+
+      graph = argv[2];
+      graph_path = graph_dir + argv[2];
+      graph_path_rev = graph_dir + argv[2] + "_rev.bin";
+      bench_path = bench_dir + "random_" + argv[2] + ".que";
+    } else {
+      print_help();
+      exit(EXIT_SUCCESS);
+    }
+  } else if (argc == 4) {
+    // Use specified bench file
+    /*bench_dijkstra_bool = true;*/
+    use_random_bench = false;
+    graph_path = graph_dir + argv[3];
+    graph_path_rev = graph_dir + argv[3] + "_rev.bin";
+    bench_path = bench_dir + argv[2] + ".que";
   } else {
-    gp.deserialize(graph_path + ".bin", node_offsets, edges);
-    gp.deserialize(graph_path + "_rev.bin", node_offsets_rev, edges_rev);
+    print_help();
+    exit(EXIT_SUCCESS);
   }
 
-  if (create_binary_preprocessing) {
-    std::unordered_map<int, std::vector<int>> landmark_distances_forward;
-    std::unordered_map<int, std::vector<int>> landmark_distances_reverse;
-    Dijkstra dijkstra_forward(node_offsets, edges);
-    Dijkstra dijkstra_reverse(node_offsets_rev, edges_rev);
-    Farthest::preprocess(16, dijkstra_forward, dijkstra_reverse,
-                         landmark_distances_forward,
-                         landmark_distances_reverse);
+  if (use_random_bench) {
+    gp.deserialize(graph_path + ".bin", node_offsets, edges);
+    Dijkstra dijkstra(node_offsets, edges);
 
-    Farthest::serialize(graph_path + "_pre.bin", landmark_distances_reverse);
-    std::cout << "Binary files created successfully!\n";
-    exit(EXIT_SUCCESS);
+    Benchmark_file_generator bfg(dijkstra);
+    bfg.create_files(100, graph);
+  } else {
+    gp.deserialize(graph_path + ".bin", node_offsets, edges);
   }
 
   std::vector<std::pair<int, int>> route_requests;
   parse_bench_file(bench_path, route_requests);
 
-  if (!skip_dijkstra) {
+  if (bench_dijkstra_bool) {
     bench_dijkstra(node_offsets, edges, route_requests);
-    std::cout << std::endl;
+    std::cout << "\n";
   }
 
-  std::unordered_map<int, std::vector<int>> landmark_distances;
+  std::vector<std::vector<int>> landmark_distances;
   Farthest::deserialize(graph_path + "_pre.bin", landmark_distances);
   bench_alt(node_offsets, edges, node_offsets_rev, edges_rev, route_requests,
             landmark_distances);
-  /*debug(graph_dir + argv[1]);*/
-}
-
-void Benchmark::handle_cla(const int &argc, const char *const *argv,
-                           bool &create_binary_graph,
-                           bool &create_binary_preprocessing,
-                           bool &skip_dijkstra, std::string &graph_path,
-                           std::string &graph_path_rev,
-                           std::string &bench_path) {
-  for (int i = 1; i < argc; i++) {
-    if (std::strcmp(argv[i], "-b") == 0) {
-      create_binary_graph = true;
-      graph_path = graph_dir + argv[i + 1];
-      return;
-    } else if (std::strcmp(argv[i], "-p") == 0) {
-      create_binary_preprocessing = true;
-      graph_path = graph_dir + argv[i + 1];
-      return;
-    } else if (std::strcmp(argv[i], "-s") == 0) {
-      skip_dijkstra = true;
-    } else if (std::strcmp(argv[i], "-h") == 0) {
-      print_help();
-      exit(EXIT_SUCCESS);
-    } else if (i == argc - 2) {
-      graph_path = graph_dir + argv[i];
-    } else if (i == argc - 1) {
-      bench_path = bench_dir + argv[i] + ".que";
-    }
-  }
-  // TODO: error handling
 }
 
 void Benchmark::print_help() {
   using std::cout;
-  cout << "Usage: modified-ALT-bench OPTIONS GRAPH BENCH" << "\n\n";
+  cout << "Usage: modified-ALT-bench OPTIONS GRAPH" << "\n\n";
   cout << "OPTIONS:\n";
   cout << "  -h: Displays this help message.\n";
-  cout << "  -s: Skip Dijkstra benchmark.\n";
+  cout << "  -d: Benchmark Dijkstra as well.\n";
   cout << "  -p: Create the binary files for faster preprocessing.\n";
   cout << "  -b: Create the binary files from the given GRAPH.\n\n";
   cout << "GRAPH:\n";
   cout << "  The graph you want to use. The graph file should be "
-          "located at 'data/graphs/' and use the '.bin' ending.\n\n";
-  cout << "BENCH:\n";
-  cout << "  The benchmark you want to use. The benchmark file should be "
-          "located at 'data/benchs/' and use the '.que' ending.\n\n";
+          "located at 'data/graphs/' and use the '.bin' ending.\n";
+  /*cout << "BENCH:\n";*/
+  /*cout << "  The benchmark you want to use. The benchmark file should be "*/
+  /*        "located at 'data/benchs/' and use the '.que' ending.\n\n";*/
 }
 
 void Benchmark::parse_bench_file(
@@ -157,6 +189,7 @@ void Benchmark::bench_dijkstra(
   using std::cout;
   using std::endl;
 
+  cout << "----------------------------------------" << endl;
   cout << "Starting Dijkstra benchmark." << endl;
   cout << "----------------------------------------" << endl;
 
@@ -180,7 +213,6 @@ void Benchmark::bench_dijkstra(
     cout << "\r" << i + 1 << "%" << std::flush;
 
     search_space += nodes_checked;
-    search_space /= i + 1;
 
     dijkstra_time += duration_dijkstra.count();
     path_costs_dijkstra.push_back(path_cost_dijkstra);
@@ -192,7 +224,8 @@ void Benchmark::bench_dijkstra(
        << dijkstra_time / route_requests.size() << "ms." << endl;
   cout << "----------------------------------------" << endl;
 
-  cout << "Dijkstra average search space: " << search_space << endl;
+  cout << "Dijkstra average search space: "
+       << search_space / route_requests.size() << endl;
   cout << "----------------------------------------" << endl;
 
   std::ofstream route_costs_dijkstra_file(std::string(BENCH_DIR) +
@@ -214,12 +247,13 @@ void Benchmark::bench_alt(
     const std::vector<int> &node_offsets_rev,
     const std::vector<Edge> &edges_rev,
     const std::vector<std::pair<int, int>> &route_requests,
-    const std::unordered_map<int, std::vector<int>> &landmark_distances) {
+    std::vector<std::vector<int>> &landmark_distances) {
   using Clock = std::chrono::high_resolution_clock;
   using Milliseconds = std::chrono::milliseconds;
   using std::cout;
   using std::endl;
 
+  cout << "----------------------------------------" << endl;
   cout << "Starting ALT benchmark." << endl;
   cout << "----------------------------------------" << endl;
 
@@ -227,8 +261,8 @@ void Benchmark::bench_alt(
   Dijkstra dijkstra_forward(node_offsets, edges);
   Dijkstra dijkstra_rev(node_offsets_rev, edges_rev);
   std::vector<int> path_costs_alt;
-  std::unordered_map<int, std::vector<int>> landmark_distances_forward;
-  std::unordered_map<int, std::vector<int>> landmark_distances_reverse;
+  std::vector<std::vector<int>> landmark_distances_forward;
+  std::vector<std::vector<int>> landmark_distances_reverse;
   int search_space = 0;
 
   /*Random_landmarks::preprocess(16, dijkstra_forward, dijkstra_rev,*/
@@ -237,15 +271,18 @@ void Benchmark::bench_alt(
   /*Farthest::preprocess(16, dijkstra_forward, dijkstra_rev,*/
   /*                     landmark_distances_reverse);*/
 
-  ALT alt(node_offsets, edges, landmark_distances_forward, landmark_distances);
+  ALT alt(node_offsets, edges);
 
   for (int i = 0; i < route_requests.size(); i++) {
     int src_id = route_requests[i].first;
     int trg_id = route_requests[i].second;
     int nodes_checked = 0;
 
+    sort_landmark_distances(src_id, trg_id, landmark_distances);
+
     auto start_alt = Clock::now();
-    int path_cost_alt = alt.src_to_trg(src_id, trg_id, nodes_checked);
+    int path_cost_alt =
+        alt.src_to_trg(src_id, trg_id, nodes_checked, landmark_distances);
     auto end_alt = Clock::now();
     auto duration_alt =
         std::chrono::duration_cast<Milliseconds>(end_alt - start_alt);
@@ -253,7 +290,6 @@ void Benchmark::bench_alt(
     cout << "\r" << i + 1 << "%" << std::flush;
 
     search_space += nodes_checked;
-    search_space /= i + 1;
 
     alt_time += duration_alt.count();
     path_costs_alt.push_back(path_cost_alt);
@@ -265,7 +301,8 @@ void Benchmark::bench_alt(
        << "ms." << endl;
   cout << "----------------------------------------" << endl;
 
-  cout << "ALT average search space: " << search_space << endl;
+  cout << "ALT average search space: " << search_space / route_requests.size()
+       << endl;
   cout << "----------------------------------------" << endl;
 
   std::ofstream route_costs_alt_file(std::string(BENCH_DIR) +
@@ -282,17 +319,33 @@ void Benchmark::bench_alt(
   route_costs_alt_file.close();
 }
 
-void Benchmark::debug(const std::string &graph_path) {
+void Benchmark::sort_landmark_distances(
+    const int &src_id, const int &trg_id,
+    std::vector<std::vector<int>> &landmark_distances) {
+  std::sort(landmark_distances.begin(), landmark_distances.end(),
+            [src_id, trg_id](auto &a, auto &b) -> bool {
+              if (a[src_id] == INT_MAX || a[trg_id] == INT_MAX ||
+                  b[src_id] == INT_MAX || b[trg_id] == INT_MAX) {
+                return INT_MIN;
+              }
+              return (a[src_id] - a[trg_id]) > (b[src_id] - b[trg_id]);
+            });
+}
+
+void Benchmark::debug(const std::string &graph) {
   Graph_parser gp;
-  std::vector<int> node_offsets_rev;
-  std::vector<Edge> edges_rev;
+  std::vector<int> node_offsets;
+  std::vector<Edge> edges;
+  /*std::vector<int> node_offsets_rev;*/
+  /*std::vector<Edge> edges_rev;*/
 
-  std::string file(graph_dir + "MV_rev.bin");
-  gp.deserialize(file, node_offsets_rev, edges_rev);
+  gp.deserialize(std::string(GRAPH_DIR) + graph + ".bin", node_offsets, edges);
+  /*gp.deserialize(std::string(GRAPH_DIR) + "MV_rev.bin", node_offsets_rev,*/
+  /*               edges_rev);*/
 
-  std::unordered_map<int, std::vector<int>> landmark_distances;
-  Dijkstra dijkstra(node_offsets_rev, edges_rev);
-  /*for (auto kv : landmark_distances) {*/
-  /*  std::cout << kv.first << "\n";*/
-  /*}*/
+  Dijkstra dijkstra_forward(node_offsets, edges);
+  /*Dijkstra dijkstra_reverse(node_offsets_rev, edges_rev);*/
+
+  Benchmark_file_generator bfg(dijkstra_forward);
+  bfg.create_files(100, graph);
 }

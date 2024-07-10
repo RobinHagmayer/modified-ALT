@@ -1,13 +1,14 @@
 #include "ALT.h"
 
 #include <climits>
+#include <cmath>
 #include <cstdlib>
 #include <functional>
 #include <limits>
 #include <queue>
-#include <cmath>
 
-int ALT::src_to_trg(int src_id, int trg_id, int &nodes_checked) {
+int ALT::src_to_trg(int src_id, int trg_id, int &nodes_checked,
+                    const std::vector<std::vector<int>> &landmark_distances) {
   using std::vector;
 
   // Initialize distances vector, visited array and priority queue
@@ -15,7 +16,9 @@ int ALT::src_to_trg(int src_id, int trg_id, int &nodes_checked) {
   vector<bool> visited(number_of_nodes, false);
   vector<int> distances(number_of_nodes, std::numeric_limits<int>::max());
   distances[src_id] = 0;
-  std::priority_queue<std::pair<int, int>, vector<std::pair<int, int>>, std::greater<std::pair<int, int>>> pq;
+  std::priority_queue<std::pair<int, int>, vector<std::pair<int, int>>,
+                      std::greater<std::pair<int, int>>>
+      pq;
   pq.push({0, src_id});
 
   while (!pq.empty()) {
@@ -48,7 +51,8 @@ int ALT::src_to_trg(int src_id, int trg_id, int &nodes_checked) {
 
       if (new_costs < distances[neighbor.trg_id]) {
         distances[neighbor.trg_id] = new_costs;
-        int priority = new_costs + h(neighbor.trg_id, trg_id);
+        int priority =
+            new_costs + h(neighbor.trg_id, trg_id, landmark_distances);
         pq.push({priority, neighbor.trg_id});
       }
     }
@@ -57,14 +61,16 @@ int ALT::src_to_trg(int src_id, int trg_id, int &nodes_checked) {
   return -1;
 }
 
-int ALT::h(int node_id, int trg_id) {
+int ALT::h(int node_id, int trg_id,
+           const std::vector<std::vector<int>> &landmark_distances) {
   int max = 0;
+  int number_of_landmarks = 3;
 
-  for (const auto &[landmark, distances] : landmark_distances_reverse_) {
-    if (distances[node_id] == INT_MAX || distances[trg_id] == INT_MAX) {
+  for (int i = 0; i < number_of_landmarks; i++) {
+    if (landmark_distances[i][node_id] == INT_MAX || landmark_distances[i][trg_id] == INT_MAX) {
       continue;
     }
-    int dist = distances[node_id] - distances[trg_id];
+    int dist = landmark_distances[i][node_id] - landmark_distances[i][trg_id];
 
     if (dist > max) {
       max = dist;
@@ -72,30 +78,4 @@ int ALT::h(int node_id, int trg_id) {
   }
 
   return max;
-}
-
-int ALT::h2(int node_id, int trg_id) {
-  int max_forward = 0;
-  int max_reverse = 0;
-
-  for (const auto &[landmark, distances_forward] : landmark_distances_forward_) {
-    auto distances_reverse = landmark_distances_reverse_.at(landmark);
-
-    int dist_forward = distances_forward[trg_id] - distances_forward[node_id];
-    int dist_reverse = distances_reverse[node_id] - distances_reverse[trg_id];
-
-    if (dist_forward > max_forward) {
-      max_forward = dist_forward;
-    }
-
-    if(dist_reverse > max_reverse) {
-      max_reverse = dist_reverse;
-    }
-  }
-
-  if (max_forward > max_reverse) {
-    return max_forward;
-  }
-
-  return max_reverse;
 }
