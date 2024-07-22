@@ -1,35 +1,54 @@
 #include "random_landmarks.h"
+#include "dijkstra.h"
 
-#include <limits>
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
 #include <random>
-#include <unordered_map>
+#include <vector>
 
-// Graph must be in reverse
-void Random_landmarks::preprocess(
-    const int &number_of_landmarks, Dijkstra &dijkstra_forward,
-    Dijkstra &dijkstra_reverse,
-    std::unordered_map<int, std::vector<int>> &landmark_distances_forward,
-    std::unordered_map<int, std::vector<int>> &landmark_distances_reverse) {
+Random_lm_data Random_landmarks::preprocess(size_t lm_count, const Graph &graph,
+                                            const Graph &graph_reverse) {
   std::cout << "Starting preprocessing..." << std::endl;
-  int number_of_nodes = dijkstra_forward.node_offsets_.size() - 1;
+
+  std::vector<size_t> lm_indexes;
+  std::vector<std::vector<uint32_t>> from_lm_distances;
+  std::vector<std::vector<uint32_t>> to_lm_distances;
+
+  lm_indexes.reserve(lm_count);
+  from_lm_distances.reserve(lm_count);
+  to_lm_distances.reserve(lm_count);
+
+  Dijkstra dijkstra(graph);
+  Dijkstra dijkstra_reverse(graph_reverse);
 
   std::random_device seed;
   std::mt19937 rng(seed());
-  std::uniform_int_distribution<> distribution(0, number_of_nodes);
+  std::uniform_int_distribution<uint32_t> distribution(
+      0, dijkstra.node_offsets.size() - 1);
 
-  for (int i = 0; i < number_of_landmarks; i++) {
-    int random_landmark = distribution(rng);
-    /*std::vector<int> distances_forward(number_of_nodes,*/
-    /*                                   std::numeric_limits<int>::max());*/
-    std::vector<int> distances_reverse(number_of_nodes,
-                                       std::numeric_limits<int>::max());
+  for (size_t i = 0; i < lm_count; ++i) {
+    lm_indexes.push_back(i);
 
-    /*dijkstra_forward.src_to_all(random_landmark, distances_forward);*/
-    /*landmark_distances_forward[random_landmark] = distances_forward;*/
+    uint32_t random_landmark = distribution(rng);
+    /*std::cout << "Random landmark ID: " << random_landmark << "\n";*/
 
-    dijkstra_reverse.src_to_all(random_landmark, distances_reverse);
-    landmark_distances_reverse[random_landmark] = distances_reverse;
+    std::vector<uint32_t> distances_forward =
+        dijkstra.src_to_all(random_landmark);
+    from_lm_distances.push_back(std::move(distances_forward));
 
-    std::cout << "Preprocessing finished!" << std::endl;
+    std::vector<uint32_t> distances_reverse =
+        dijkstra_reverse.src_to_all(random_landmark);
+    to_lm_distances.push_back(std::move(distances_reverse));
   }
+
+  std::cout << "Preprocessing finished!" << std::endl;
+
+  Random_lm_data lm_data;
+
+  lm_data.lm_indexes = std::move(lm_indexes);
+  lm_data.from_lm_distances = std::move(from_lm_distances);
+  lm_data.to_lm_distances = std::move(to_lm_distances);
+
+  return lm_data;
 }

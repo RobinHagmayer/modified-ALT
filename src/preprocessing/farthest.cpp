@@ -2,98 +2,139 @@
 
 #include <climits>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <random>
 #include <utility>
 
-void Farthest::preprocess(
-    const int &number_of_landmarks, Dijkstra &dijkstra_forward,
-    Dijkstra &dijkstra_reverse,
-    std::vector<std::vector<int>> &landmark_distances_forward,
-    std::vector<std::vector<int>> &landmark_distances_reverse) {
+Farthest_lm_data Farthest::preprocess(size_t lm_count, const Graph &graph,
+                                      const Graph &graph_reverse) {
   std::cout << "Starting preprocessing..." << std::endl;
-  int number_of_nodes = dijkstra_reverse.node_offsets_.size() - 1;
-  std::vector<int> landmarks;
+
+  std::vector<size_t> lm_indexes;
+  std::vector<std::vector<uint32_t>> from_lm_distances;
+  std::vector<std::vector<uint32_t>> to_lm_distances;
+
+  lm_indexes.reserve(lm_count);
+  from_lm_distances.reserve(lm_count);
+  to_lm_distances.reserve(lm_count);
+
+  Dijkstra dijkstra(graph);
+  Dijkstra dijkstra_reverse(graph_reverse);
+
+  size_t number_of_nodes = dijkstra_reverse.node_offsets.size() - 1;
 
   std::random_device seed;
   std::mt19937 rng(seed());
-  std::uniform_int_distribution<> distribution(0, number_of_nodes);
+  std::uniform_int_distribution<uint32_t> distribution(0, number_of_nodes);
 
-  // Choose random node and calculate farthest node from it
-  int random_node = distribution(rng);
-
-  std::vector<int> random_node_distances(number_of_nodes, INT_MAX);
-  dijkstra_forward.src_to_all(random_node, random_node_distances);
-
+  // Get a highly connected graph
   std::vector<bool> reachable =
-      check_reachability(dijkstra_forward, dijkstra_reverse, distribution(rng));
+      check_reachability(dijkstra, dijkstra_reverse, distribution(rng));
 
-  int first_landmark = find_farthest_node(random_node_distances);
-  if (!reachable[first_landmark]) {
+  int random_node;
+  do {
+    random_node = distribution(rng);
+  } while (!reachable[random_node]);
+  /*std::cout << "Random node ID: " << random_node << "\n";*/
+
+  std::vector<uint32_t> random_node_distances =
+      dijkstra.src_to_all(random_node);
+
+  auto opt_first_lm = find_farthest_node(random_node_distances, reachable);
+
+  if (!opt_first_lm.has_value() || !reachable[*opt_first_lm]) {
     std::cout << "Nicht erreichbar" << std::endl;
+    exit(EXIT_FAILURE);
   }
-  std::cout << "First landmark: " << first_landmark << "\n";
 
-  std::vector<int> to_first_landmark_distances(number_of_nodes, INT_MAX);
-  dijkstra_reverse.src_to_all(first_landmark, to_first_landmark_distances);
+  /*std::cout << "First landmark: " << *opt_first_lm << "\n";*/
+  lm_indexes.push_back(0);
+
+  std::vector<uint32_t> from_first_lm_dist = dijkstra.src_to_all(*opt_first_lm);
+  std::vector<uint32_t> to_first_lm_dist =
+      dijkstra_reverse.src_to_all(*opt_first_lm);
 
   // Copy the first distances array
-  std::vector<int> min_distances = to_first_landmark_distances;
+  std::vector<uint32_t> min_distances = to_first_lm_dist;
+
+  from_lm_distances.push_back(std::move(from_first_lm_dist));
+  to_lm_distances.push_back(std::move(to_first_lm_dist));
 
   // Find next landmark
-  int current_landmark = find_farthest_node(to_first_landmark_distances);
-  std::cout << "Current landmark: " << current_landmark << "\n";
-  if (!reachable[current_landmark]) {
+  auto opt_curr_lm = find_farthest_node(min_distances, reachable);
+  if (!opt_curr_lm.has_value() || !reachable[*opt_curr_lm]) {
     std::cout << "Nicht erreichbar" << std::endl;
+    exit(EXIT_FAILURE);
   }
 
-  landmark_distances_reverse.push_back(std::move(to_first_landmark_distances));
+  /*std::cout << "Current landmark: " << *opt_curr_lm << "\n";*/
+  size_t lm_counter = 1;
 
   // Calculate other landmarks based on the first landmark
-  while (landmark_distances_reverse.size() < number_of_landmarks) {
+  while (to_lm_distances.size() < lm_count) {
     // Calculate distances from all nodes to a landmark
-    std::vector<int> to_current_landmark_distances(number_of_nodes, INT_MAX);
-    dijkstra_reverse.src_to_all(current_landmark,
-                                to_current_landmark_distances);
+    std::vector<uint32_t> from_curr_lm_dist = dijkstra.src_to_all(*opt_curr_lm);
+    std::vector<uint32_t> to_curr_lm_dist =
+        dijkstra_reverse.src_to_all(*opt_curr_lm);
 
     // Update minimum distance array
-    for (int i = 0; i < min_distances.size(); i++) {
-      if (min_distances[i] > to_current_landmark_distances[i]) {
-        min_distances[i] = to_current_landmark_distances[i];
+    for (size_t i = 0; i < min_distances.size(); ++i) {
+      if (min_distances[i] > to_curr_lm_dist[i]) {
+        min_distances[i] = to_curr_lm_dist[i];
       }
     }
 
-    landmark_distances_reverse.push_back(std::move(to_current_landmark_distances));
+    lm_indexes.push_back(lm_counter);
+    from_lm_distances.push_back(std::move(from_curr_lm_dist));
+    to_lm_distances.push_back(std::move(to_curr_lm_dist));
+
+    lm_counter++;
 
     // Find next landmark
-    current_landmark = find_farthest_node(min_distances);
-    if (!reachable[current_landmark]) {
+    opt_curr_lm = find_farthest_node(min_distances, reachable);
+    if (!opt_curr_lm.has_value() || !reachable[*opt_curr_lm]) {
       std::cout << "Nicht erreichbar" << std::endl;
+      exit(EXIT_FAILURE);
     }
-    std::cout << "Current landmark: " << current_landmark << "\n";
+    /*std::cout << "Current landmark: " << *opt_curr_lm << "\n";*/
   }
 
-  std::cout << "Preprocessing finished!\n";
+  std::cout << "Preprocessing for farthest finished!\n";
+
+  Farthest_lm_data lm_data;
+
+  lm_data.lm_indexes = std::move(lm_indexes);
+  lm_data.from_lm_distances = std::move(from_lm_distances);
+  lm_data.to_lm_distances = std::move(to_lm_distances);
+
+  return lm_data;
 }
 
-int Farthest::find_farthest_node(
-    const std::vector<int> &random_node_distances) {
-  int max = INT_MIN;
-  int landmark;
+std::optional<uint32_t>
+Farthest::find_farthest_node(const std::vector<uint32_t> &random_node_distances,
+                             const std::vector<bool> &reachable) {
+  uint32_t max = 0;
+  uint32_t landmark;
 
-  for (int i = 0; i < random_node_distances.size(); i++) {
-    int num = random_node_distances[i];
+  for (size_t i = 0; i < random_node_distances.size(); ++i) {
+    if (!reachable[i]) {
+      continue;
+    }
 
-    if (num != INT_MAX && num > max) {
+    uint32_t num = random_node_distances[i];
+
+    if (num != UINT32_MAX && num > max) {
       max = num;
       landmark = i;
     }
   }
 
-  if (max == INT_MIN) {
-    return -1;
+  if (max == 0) {
+    return std::nullopt;
   }
 
   return landmark;
@@ -101,19 +142,19 @@ int Farthest::find_farthest_node(
 
 std::vector<bool> Farthest::check_reachability(Dijkstra &dijkstra_forward,
                                                Dijkstra &dijkstra_reverse,
-                                               int node_id) {
-  int number_of_nodes = dijkstra_forward.node_offsets_.size() - 1;
+                                               uint32_t node_id) {
+  size_t number_of_nodes = dijkstra_forward.node_offsets.size() - 1;
   std::vector<bool> reachable(number_of_nodes, 1);
 
-  std::vector<int> forward_distances(number_of_nodes, INT_MAX);
-  std::vector<int> reverse_distances(number_of_nodes, INT_MAX);
+  std::vector<uint32_t> forward_distances =
+      dijkstra_forward.src_to_all(node_id);
+  std::vector<uint32_t> reverse_distances =
+      dijkstra_reverse.src_to_all(node_id);
 
-  dijkstra_forward.src_to_all(node_id, forward_distances);
-  dijkstra_reverse.src_to_all(node_id, reverse_distances);
-
-  int count_unreachable = 0;
-  for (int i = 0; i < forward_distances.size(); i++) {
-    if (forward_distances[i] == INT_MAX && reverse_distances[i] == INT_MAX) {
+  uint32_t count_unreachable = 0;
+  for (size_t i = 0; i < forward_distances.size(); ++i) {
+    if (forward_distances[i] == UINT32_MAX ||
+        reverse_distances[i] == UINT32_MAX) {
       count_unreachable++;
       reachable[i] = 0;
       /*std::cout << "Source node: " << node_id << ", unreachable node: " << i
@@ -125,7 +166,7 @@ std::vector<bool> Farthest::check_reachability(Dijkstra &dijkstra_forward,
       (double)count_unreachable / (double)number_of_nodes;
   /*std::cout << unreachable_ratio << std::endl;*/
 
-  if (unreachable_ratio > 0.02) {
+  if (unreachable_ratio > 0.05) {
     std::cerr << "Preproccessor choose bad random node. Try again please."
               << std::endl;
     exit(EXIT_FAILURE);
@@ -136,7 +177,8 @@ std::vector<bool> Farthest::check_reachability(Dijkstra &dijkstra_forward,
 
 void Farthest::serialize(
     const std::string &file_path,
-    const std::vector<std::vector<int>> &landmark_distances) {
+    const std::vector<std::vector<uint32_t>> &landmark_distances_forward,
+    const std::vector<std::vector<uint32_t>> &landmark_distances_reverse) {
   std::ofstream output_file_stream(file_path, std::ios::binary);
 
   if (!output_file_stream) {
@@ -145,17 +187,30 @@ void Farthest::serialize(
     exit(EXIT_FAILURE);
   }
 
-  size_t map_size = landmark_distances.size();
-  output_file_stream.write(reinterpret_cast<const char *>(&map_size),
-                           sizeof(map_size));
+  size_t ldf_size = landmark_distances_forward.size();
+  output_file_stream.write(reinterpret_cast<const char *>(&ldf_size),
+                           sizeof(ldf_size));
 
-  for (const auto &vec : landmark_distances) {
+  for (const auto &vec : landmark_distances_forward) {
     size_t vector_size = vec.size();
     output_file_stream.write(reinterpret_cast<const char *>(&vector_size),
                              sizeof(vector_size));
 
     output_file_stream.write(reinterpret_cast<const char *>(vec.data()),
-                             vector_size * sizeof(int));
+                             vector_size * sizeof(uint32_t));
+  }
+
+  size_t ldr_size = landmark_distances_reverse.size();
+  output_file_stream.write(reinterpret_cast<const char *>(&ldr_size),
+                           sizeof(ldr_size));
+
+  for (const auto &vec : landmark_distances_reverse) {
+    size_t vector_size = vec.size();
+    output_file_stream.write(reinterpret_cast<const char *>(&vector_size),
+                             sizeof(vector_size));
+
+    output_file_stream.write(reinterpret_cast<const char *>(vec.data()),
+                             vector_size * sizeof(uint32_t));
   }
 
   output_file_stream.close();
@@ -163,7 +218,8 @@ void Farthest::serialize(
 
 void Farthest::deserialize(
     const std::string &file_path,
-    std::vector<std::vector<int>> &landmark_distances) {
+    std::vector<std::vector<uint32_t>> &landmark_distances_forward,
+    std::vector<std::vector<uint32_t>> &landmark_distances_reverse) {
   std::ifstream input_file_stream(file_path, std::ios::binary);
 
   if (!input_file_stream) {
@@ -172,20 +228,35 @@ void Farthest::deserialize(
     exit(EXIT_FAILURE);
   }
 
-  size_t map_size;
-  input_file_stream.read(reinterpret_cast<char *>(&map_size), sizeof(map_size));
+  size_t ldf_size;
+  input_file_stream.read(reinterpret_cast<char *>(&ldf_size), sizeof(ldf_size));
 
-  for (size_t i = 0; i < map_size; i++) {
+  for (size_t i = 0; i < ldf_size; i++) {
     size_t vector_size;
 
     input_file_stream.read(reinterpret_cast<char *>(&vector_size),
                            sizeof(vector_size));
 
-    std::vector<int> distances(vector_size);
-    input_file_stream.read(reinterpret_cast<char *>(distances.data()),
+    std::vector<uint32_t> distances_forward(vector_size);
+    input_file_stream.read(reinterpret_cast<char *>(distances_forward.data()),
                            vector_size * sizeof(int));
 
-    landmark_distances.push_back(std::move(distances));
+    landmark_distances_forward.push_back(std::move(distances_forward));
+  }
+
+  size_t ldr_size;
+  input_file_stream.read(reinterpret_cast<char *>(&ldr_size), sizeof(ldr_size));
+
+  for (size_t i = 0; i < ldr_size; i++) {
+    size_t vector_size;
+    input_file_stream.read(reinterpret_cast<char *>(&vector_size),
+                           sizeof(vector_size));
+
+    std::vector<uint32_t> distances_reverse(vector_size);
+    input_file_stream.read(reinterpret_cast<char *>(distances_reverse.data()),
+                           vector_size * sizeof(int));
+
+    landmark_distances_reverse.push_back(std::move(distances_reverse));
   }
 
   input_file_stream.close();

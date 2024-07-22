@@ -1,6 +1,6 @@
 #pragma once
 
-#include "edge.h"
+#include "graph.h"
 
 #include <string>
 #include <vector>

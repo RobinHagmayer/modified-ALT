@@ -1,6 +1,6 @@
 #include "app.h"
 #include "cli.h"
-#include "edge.h"
+#include "graph.h"
 #include "graph_parser.h"
 
 #include <chrono>
@@ -60,7 +60,7 @@ void App::read_graph(const std::string &file_path,
 
   cout << "Starting reading in the graph..." << endl;
   auto start = Clock::now();
-  graph_parser.parse(file_path, node_offsets, edges, false);
+  /*graph_parser.parse(file_path, node_offsets, edges, false);*/
   auto end = Clock::now();
   auto duration = std::chrono::duration_cast<Milliseconds>(end - start);
 
@@ -70,7 +70,7 @@ void App::read_graph(const std::string &file_path,
   cout << "----------------------------------------------------------" << endl;
 
   auto start_parser_rev = Clock::now();
-  graph_parser.parse(file_path, node_offsets_rev, edges_rev, true);
+  /*graph_parser.parse(file_path, node_offsets_rev, edges_rev, true);*/
   auto end_parser_rev = Clock::now();
   auto duration_parser_rev = std::chrono::duration_cast<Milliseconds>(
       end_parser_rev - start_parser_rev);

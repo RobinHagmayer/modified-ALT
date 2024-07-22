@@ -1,19 +1,23 @@
 #pragma once
 
-#include "edge.h"
+#include "graph.h"
 
+#include <cstdint>
 #include <vector>
 
 class ALT {
 public:
-  const std::vector<int> &node_offsets_;
-  const std::vector<Edge> &edges_;
+  const std::vector<uint32_t> &node_offsets;
+  const std::vector<Edge> &edges;
+  const std::vector<std::vector<uint32_t>> &to_lm_distances;
 
-  ALT(const std::vector<int> &no, const std::vector<Edge> &e)
-      : node_offsets_(no), edges_(e){};
+  ALT(const Graph &graph,
+      const std::vector<std::vector<uint32_t>> &to_lm_distances)
+      : node_offsets(graph.node_offsets), edges(graph.edges),
+        to_lm_distances(to_lm_distances){};
 
-  int src_to_trg(int src_id, int trg_id, int &nodes_checked,
-                 const std::vector<std::vector<int>> &landmark_distances);
-  int h(int node_id, int trg_id,
-        const std::vector<std::vector<int>> &landmark_distances);
+  uint32_t src_to_trg(uint32_t src_id, uint32_t trg_id, uint32_t &nodes_checked,
+                      size_t lm_count);
+
+  int32_t h(uint32_t node_id, uint32_t trg_id, size_t lm_count);
 };

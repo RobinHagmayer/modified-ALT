@@ -1,16 +1,21 @@
 #pragma once
 
-#include "edge.h"
+#include "graph.h"
 
+#include <cstdint>
 #include <vector>
 
 class Dijkstra {
 public:
-  const std::vector<int> &node_offsets_;
-  const std::vector<Edge> &edges_;
+  const std::vector<uint32_t> &node_offsets;
+  const std::vector<Edge> &edges;
 
-  Dijkstra(const std::vector<int> &no, const std::vector<Edge> &e)
-      : node_offsets_(no), edges_(e){};
-  void src_to_all(int src, std::vector<int> &distances);
-  int src_to_trg(int src, int trg, int &nodes_checked);
+  Dijkstra(const Graph &graph)
+      : node_offsets(graph.node_offsets), edges(graph.edges){};
+
+  std::vector<uint32_t> src_to_all(uint32_t src);
+
+  void src_to_all(uint32_t src, std::vector<uint32_t> &distances);
+
+  uint32_t src_to_trg(uint32_t src, uint32_t trg, uint32_t &nodes_checked);
 };

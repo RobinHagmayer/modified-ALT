@@ -1,167 +1,185 @@
 #include "benchmark.h"
 #include "ALT.h"
+#include "argparse.hpp"
 #include "benchmark_file_generator.h"
 #include "dijkstra.h"
 #include "farthest.h"
+#include "graph.h"
 #include "graph_parser.h"
+#include "new.h"
+#include "new_ALT.h"
 
-#include <algorithm>
 #include <chrono>
 #include <climits>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+#include <optional>
+#include <vector>
 
-const std::string Benchmark::graph_dir = std::string(GRAPH_DIR);
-const std::string Benchmark::bench_dir = std::string(BENCH_DIR);
+struct BenchmarkArgs : public argparse::Args {
+  std::string &graph_filename =
+      arg("graph", "The graph which should be used for the benchmark");
 
-void Benchmark::run(const int &argc, const char *const *argv) {
-  /*debug(argv[1]);*/
-  /*return;*/
+  int &algorithm =
+      kwarg("a,algorithm", "The algorithm which should be used\n\t\t\t- 1: "
+                           "Dijkstra's Algorithm\n\t\t\t- 2: ALT\n\t\t\t- 3: "
+                           "Modified ALT\n\t\t\t- 0: All of the above")
+          .set_default(0);
 
-  std::string graph;
-  std::string graph_path;
-  std::string graph_path_rev;
-  std::string bench_path;
+  std::string &benchmark =
+      kwarg("B,benchmark", "The benchmark which should be used")
+          .set_default("random");
 
-  bool use_random_bench = true;
-  bool bench_dijkstra_bool = false;
+  std::optional<uint32_t> &random_bench =
+      kwarg("r,random", "Create a random benchmark for the specified graph "
+                        "with the given number of route requests");
+
+  bool &binary = flag("b,binary", "Create the necessary binary graph files");
+  bool &preprocess =
+      flag("p,preprocess",
+           "Create the necessary preprocess files for the ALT algorithms");
+  bool &verbose = flag("v,verbose", "More detailed output to the user");
+};
+
+void Benchmark::run(int argc, char *argv[]) {
+  auto args = argparse::parse<BenchmarkArgs>(argc, argv);
+
+  if (args.binary) {
+    create_binary_graph(GRAPH_DIR + args.graph_filename);
+  }
+
+  if (args.preprocess) {
+    preprocess(GRAPH_DIR + args.graph_filename);
+  }
+
+  if (args.random_bench.has_value()) {
+    create_random_bench(GRAPH_DIR + args.graph_filename, args.graph_filename,
+                        args.random_bench.value());
+  }
+
+  std::string bench_option = args.benchmark;
+
+  if (args.benchmark == "random") {
+    bench_option = args.benchmark + "_" + args.graph_filename;
+  }
+
+  route_requests_vec route_requests =
+      parse_bench_file(BENCH_DIR + bench_option + ".que");
 
   Graph_parser gp;
-  std::vector<int> node_offsets;
-  std::vector<Edge> edges;
-  std::vector<int> node_offsets_rev;
-  std::vector<Edge> edges_rev;
-  std::vector<std::vector<int>> landmark_distances_forward;
-  std::vector<std::vector<int>> landmark_distances_reverse;
+  Graph graph = gp.deserialize(GRAPH_DIR + args.graph_filename + ".bin");
 
-  if (argc <= 1) {
-    print_help();
+  if (args.algorithm == 1) { // Dijkstra
+    bench_dijkstra(graph, route_requests);
     exit(EXIT_SUCCESS);
-  } else if (argc == 2) {
-    std::string option = argv[1];
-    std::string help_option = "-h";
+  } else if (args.algorithm == 2) { // ALT
+    Graph graph_reverse =
+        gp.deserialize(GRAPH_DIR + args.graph_filename + "_rev.bin");
 
-    if (option == help_option) {
-      print_help();
-      exit(EXIT_SUCCESS);
-    }
+    std::vector<std::vector<uint32_t>> from_lm_distances;
+    std::vector<std::vector<uint32_t>> to_lm_distances;
+    Farthest::deserialize(GRAPH_DIR + args.graph_filename + "_pre.bin",
+                          from_lm_distances, to_lm_distances);
 
-    // Default usage.
-    // Uses binary graph and preprocessing files.
-    // Uses random benchmarks.
-    graph = argv[1];
-    graph_path = graph_dir + argv[1];
-    graph_path_rev = graph_dir + argv[1] + "_rev.bin";
-    bench_path = bench_dir + "random_" + argv[1] + ".que";
-  } else if (argc == 3) {
-    std::string option = argv[1];
-    std::string b_option = "-b";
-    std::string p_option = "-p";
-    std::string d_option = "-d";
-
-    if (option == b_option) {
-      // Create binary graph files
-      graph_path = graph_dir + argv[2];
-      use_random_bench = false;
-
-      gp.parse(graph_path + ".fmi", node_offsets, edges, false);
-      gp.serialize(graph_path + ".bin", node_offsets, edges);
-
-      gp.parse(graph_path + ".fmi", node_offsets_rev, edges_rev, true);
-      gp.serialize(graph_path + "_rev.bin", node_offsets_rev, edges_rev);
-
-      std::cout << "Binary files created successfully!\n";
-      exit(EXIT_SUCCESS);
-    } else if (option == p_option) {
-      // Create binary preprocessing files
-      graph_path = graph_dir + argv[2];
-      use_random_bench = false;
-
-      gp.deserialize(graph_path + ".bin", node_offsets, edges);
-      gp.deserialize(graph_path + "_rev.bin", node_offsets_rev, edges_rev);
-
-      Dijkstra dijkstra_forward(node_offsets, edges);
-      Dijkstra dijkstra_reverse(node_offsets_rev, edges_rev);
-      Farthest::preprocess(16, dijkstra_forward, dijkstra_reverse,
-                           landmark_distances_forward,
-                           landmark_distances_reverse);
-
-      Farthest::serialize(graph_path + "_pre.bin", landmark_distances_reverse);
-      exit(EXIT_SUCCESS);
-    } else if (option == d_option) {
-      // Bench Dijkstra's algorithm and ALT
-      bench_dijkstra_bool = true;
-
-      graph = argv[2];
-      graph_path = graph_dir + argv[2];
-      graph_path_rev = graph_dir + argv[2] + "_rev.bin";
-      bench_path = bench_dir + "random_" + argv[2] + ".que";
-    } else {
-      print_help();
-      exit(EXIT_SUCCESS);
-    }
-  } else if (argc == 4) {
-    // Use specified bench file
-    /*bench_dijkstra_bool = true;*/
-    use_random_bench = false;
-    graph_path = graph_dir + argv[3];
-    graph_path_rev = graph_dir + argv[3] + "_rev.bin";
-    bench_path = bench_dir + argv[2] + ".que";
-  } else {
-    print_help();
+    bench_alt(3, graph, graph_reverse, route_requests, to_lm_distances);
     exit(EXIT_SUCCESS);
-  }
+  } else if (args.algorithm == 3) { // Modified ALT
+    Graph graph_reverse =
+        gp.deserialize(GRAPH_DIR + args.graph_filename + "_rev.bin");
 
-  if (use_random_bench) {
-    gp.deserialize(graph_path + ".bin", node_offsets, edges);
-    Dijkstra dijkstra(node_offsets, edges);
+    New_lm_data lm_data =
+        New::deserialize(GRAPH_DIR + args.graph_filename + "_new_pre.bin");
 
-    Benchmark_file_generator bfg(dijkstra);
-    bfg.create_files(100, graph);
-  } else {
-    gp.deserialize(graph_path + ".bin", node_offsets, edges);
-  }
-
-  std::vector<std::pair<int, int>> route_requests;
-  parse_bench_file(bench_path, route_requests);
-
-  if (bench_dijkstra_bool) {
-    bench_dijkstra(node_offsets, edges, route_requests);
+    uint32_t lm_count = std::sqrt(graph.node_offsets.size() - 1);
+    bench_new_alt(lm_count, graph, graph_reverse, route_requests, lm_data);
+    /*bench_new_alt(256, graph, graph_reverse, route_requests, lm_data);*/
+    exit(EXIT_SUCCESS);
+  } else if (args.algorithm == 0) { // All algorithms
+    bench_dijkstra(graph, route_requests);
     std::cout << "\n";
+
+    Graph graph_reverse =
+        gp.deserialize(GRAPH_DIR + args.graph_filename + "_rev.bin");
+
+    std::vector<std::vector<uint32_t>> from_lm_distances;
+    std::vector<std::vector<uint32_t>> to_lm_distances;
+    Farthest::deserialize(GRAPH_DIR + args.graph_filename + "_pre.bin",
+                          from_lm_distances, to_lm_distances);
+
+    bench_alt(3, graph, graph_reverse, route_requests, to_lm_distances);
+    std::cout << "\n";
+
+    New_lm_data lm_data =
+        New::deserialize(GRAPH_DIR + args.graph_filename + "_new_pre.bin");
+
+    uint32_t lm_count = std::sqrt(graph.node_offsets.size() - 1);
+    bench_new_alt(lm_count, graph, graph_reverse, route_requests, lm_data);
+    exit(EXIT_SUCCESS);
   }
 
-  std::vector<std::vector<int>> landmark_distances;
-  Farthest::deserialize(graph_path + "_pre.bin", landmark_distances);
-  bench_alt(node_offsets, edges, node_offsets_rev, edges_rev, route_requests,
-            landmark_distances);
+  std::cerr << "This state of the program is not possible" << std::endl;
+
+  exit(EXIT_FAILURE);
 }
 
-void Benchmark::print_help() {
-  using std::cout;
-  cout << "Usage: modified-ALT-bench OPTIONS GRAPH" << "\n\n";
-  cout << "OPTIONS:\n";
-  cout << "  -h: Displays this help message.\n";
-  cout << "  -d: Benchmark Dijkstra as well.\n";
-  cout << "  -p: Create the binary files for faster preprocessing.\n";
-  cout << "  -b: Create the binary files from the given GRAPH.\n\n";
-  cout << "GRAPH:\n";
-  cout << "  The graph you want to use. The graph file should be "
-          "located at 'data/graphs/' and use the '.bin' ending.\n";
-  /*cout << "BENCH:\n";*/
-  /*cout << "  The benchmark you want to use. The benchmark file should be "*/
-  /*        "located at 'data/benchs/' and use the '.que' ending.\n\n";*/
+void Benchmark::create_binary_graph(const std::string &graph_path) {
+  std::cout << "Starting creation of binary graph files..." << std::endl;
+  Graph_parser gp;
+
+  Graph graph = gp.parse(graph_path + ".fmi", false);
+  Graph graph_reverse = gp.parse(graph_path + ".fmi", true);
+
+  gp.serialize(graph_path + ".bin", graph);
+  gp.serialize(graph_path + "_rev.bin", graph_reverse);
+
+  std::cout << "Binary files created successfully!" << std::endl;
+  exit(EXIT_SUCCESS);
 }
 
-void Benchmark::parse_bench_file(
-    const std::string &bench_path,
-    std::vector<std::pair<int, int>> &route_requests) {
+void Benchmark::preprocess(const std::string &graph_path) {
+  Graph_parser gp;
+
+  Graph graph = gp.deserialize(graph_path + ".bin");
+  Graph graph_reverse = gp.deserialize(graph_path + "_rev.bin");
+
+  Farthest_lm_data lm_data = Farthest::preprocess(16, graph, graph_reverse);
+
+  Farthest::serialize(graph_path + "_pre.bin", lm_data.from_lm_distances,
+                      lm_data.to_lm_distances);
+
+  uint32_t lm_count = std::sqrt(graph.node_offsets.size() - 1);
+  New_lm_data new_lm_data = New::preprocess(lm_count, graph, graph_reverse);
+  /*New_lm_data new_lm_data = New::preprocess(256, graph, graph_reverse);*/
+
+  New::serialize(graph_path + "_new_pre.bin", new_lm_data);
+
+  exit(EXIT_SUCCESS);
+}
+
+void Benchmark::create_random_bench(const std::string &graph_path,
+                                    const std::string &graph_option,
+                                    uint32_t route_request_count) {
+  std::cout << "Starting generating random benchmark files" << "\n";
+  Graph_parser gp;
+  Graph graph = gp.deserialize(graph_path + ".bin");
+
+  Dijkstra dijkstra(graph);
+
+  Benchmark_file_generator bfg(dijkstra);
+  bfg.create_files(route_request_count, graph_option);
+
+  std::cout << "Finished generating random benchmark files" << "\n";
+  exit(EXIT_SUCCESS);
+}
+
+route_requests_vec Benchmark::parse_bench_file(const std::string &bench_path) {
+  route_requests_vec route_requests;
   std::string line;
-  int src_id;
-  int trg_id;
+  uint32_t src_id;
+  uint32_t trg_id;
 
   std::ifstream bench_file(bench_path);
   if (!bench_file.is_open()) {
@@ -179,11 +197,12 @@ void Benchmark::parse_bench_file(
   }
 
   bench_file.close();
+
+  return route_requests;
 }
 
-void Benchmark::bench_dijkstra(
-    const std::vector<int> &node_offsets, const std::vector<Edge> &edges,
-    const std::vector<std::pair<int, int>> &route_requests) {
+void Benchmark::bench_dijkstra(const Graph &graph,
+                               const route_requests_vec &route_requests) {
   using Clock = std::chrono::high_resolution_clock;
   using Milliseconds = std::chrono::milliseconds;
   using std::cout;
@@ -194,41 +213,42 @@ void Benchmark::bench_dijkstra(
   cout << "----------------------------------------" << endl;
 
   long dijkstra_time = 0;
-  std::vector<int> path_costs_dijkstra;
-  Dijkstra dijsktra(node_offsets, edges);
+  uint32_t search_space = 0;
+  std::vector<uint32_t> path_costs_dijkstra;
+  Dijkstra dijsktra(graph);
 
-  int search_space = 0;
-
-  for (int i = 0; i < route_requests.size(); i++) {
-    int src_id = route_requests[i].first;
-    int trg_id = route_requests[i].second;
-    int nodes_checked = 0;
+  for (size_t i = 0; i < route_requests.size(); ++i) {
+    uint32_t src_id = route_requests[i].first;
+    uint32_t trg_id = route_requests[i].second;
+    uint32_t nodes_checked = 0;
 
     auto start_dijsktra = Clock::now();
-    int path_cost_dijkstra = dijsktra.src_to_trg(src_id, trg_id, nodes_checked);
+    uint32_t cost = dijsktra.src_to_trg(src_id, trg_id, nodes_checked);
     auto end_dijkstra = Clock::now();
     auto duration_dijkstra =
         std::chrono::duration_cast<Milliseconds>(end_dijkstra - start_dijsktra);
 
-    cout << "\r" << i + 1 << "%" << std::flush;
+    uint32_t progress =
+        static_cast<uint32_t>((i + 1) * 100 / route_requests.size());
+    std::cout << "\rProgress: " << progress << "%" << std::flush;
 
     search_space += nodes_checked;
 
     dijkstra_time += duration_dijkstra.count();
-    path_costs_dijkstra.push_back(path_cost_dijkstra);
+    path_costs_dijkstra.push_back(cost);
   }
   cout << endl;
 
   cout << "----------------------------------------" << endl;
   cout << "Dijkstra average execution time: "
-       << dijkstra_time / route_requests.size() << "ms." << endl;
+       << dijkstra_time / route_requests.size() << "ms" << endl;
   cout << "----------------------------------------" << endl;
 
   cout << "Dijkstra average search space: "
        << search_space / route_requests.size() << endl;
   cout << "----------------------------------------" << endl;
 
-  std::ofstream route_costs_dijkstra_file(std::string(BENCH_DIR) +
+  std::ofstream route_costs_dijkstra_file(BENCH_DIR +
                                           "route_costs_dijkstra.txt");
   if (!route_costs_dijkstra_file) {
     std::cerr << "Error opening file." << endl;
@@ -242,110 +262,143 @@ void Benchmark::bench_dijkstra(
   route_costs_dijkstra_file.close();
 }
 
-void Benchmark::bench_alt(
-    const std::vector<int> &node_offsets, const std::vector<Edge> &edges,
-    const std::vector<int> &node_offsets_rev,
-    const std::vector<Edge> &edges_rev,
-    const std::vector<std::pair<int, int>> &route_requests,
-    std::vector<std::vector<int>> &landmark_distances) {
+void Benchmark::bench_alt(size_t lm_count, const Graph &graph,
+                          const Graph &graph_reverse,
+                          const route_requests_vec &route_requests,
+                          std::vector<std::vector<uint32_t>> &to_lm_distances) {
   using Clock = std::chrono::high_resolution_clock;
   using Milliseconds = std::chrono::milliseconds;
-  using std::cout;
-  using std::endl;
 
-  cout << "----------------------------------------" << endl;
-  cout << "Starting ALT benchmark." << endl;
-  cout << "----------------------------------------" << endl;
+  std::cout << "----------------------------------------" << std::endl;
+  std::cout << "Starting ALT benchmark." << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
 
   long alt_time = 0;
-  Dijkstra dijkstra_forward(node_offsets, edges);
-  Dijkstra dijkstra_rev(node_offsets_rev, edges_rev);
-  std::vector<int> path_costs_alt;
-  std::vector<std::vector<int>> landmark_distances_forward;
-  std::vector<std::vector<int>> landmark_distances_reverse;
-  int search_space = 0;
+  uint32_t search_space = 0;
+  std::vector<uint32_t> path_costs_alt;
+  /*ALT alt(graph, lm_data.to_lm_distances);*/
+  ALT alt(graph, to_lm_distances);
 
-  /*Random_landmarks::preprocess(16, dijkstra_forward, dijkstra_rev,*/
-  /*                             landmark_distances_forward,*/
-  /*                             landmark_distances_reverse);*/
-  /*Farthest::preprocess(16, dijkstra_forward, dijkstra_rev,*/
-  /*                     landmark_distances_reverse);*/
+  /*for (size_t i = 0; i < 1; ++i) {*/
+  for (size_t i = 0; i < route_requests.size(); ++i) {
+    uint32_t src_id = route_requests[i].first;
+    uint32_t trg_id = route_requests[i].second;
+    uint32_t nodes_checked = 0;
 
-  ALT alt(node_offsets, edges);
-
-  for (int i = 0; i < route_requests.size(); i++) {
-    int src_id = route_requests[i].first;
-    int trg_id = route_requests[i].second;
-    int nodes_checked = 0;
-
-    sort_landmark_distances(src_id, trg_id, landmark_distances);
+    sort_landmark_distances(src_id, trg_id, to_lm_distances);
 
     auto start_alt = Clock::now();
-    int path_cost_alt =
-        alt.src_to_trg(src_id, trg_id, nodes_checked, landmark_distances);
+    uint32_t cost = alt.src_to_trg(src_id, trg_id, nodes_checked, lm_count);
     auto end_alt = Clock::now();
     auto duration_alt =
         std::chrono::duration_cast<Milliseconds>(end_alt - start_alt);
 
-    cout << "\r" << i + 1 << "%" << std::flush;
+    uint32_t progress =
+        static_cast<uint32_t>((i + 1) * 100 / route_requests.size());
+    std::cout << "\rProgress: " << progress << "%" << std::flush;
 
     search_space += nodes_checked;
 
     alt_time += duration_alt.count();
-    path_costs_alt.push_back(path_cost_alt);
+    path_costs_alt.push_back(cost);
   }
-  cout << endl;
 
-  cout << "----------------------------------------" << endl;
-  cout << "ALT average execution time: " << alt_time / route_requests.size()
-       << "ms." << endl;
-  cout << "----------------------------------------" << endl;
+  std::cout << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
+  std::cout << "ALT average execution time: "
+            << alt_time / route_requests.size() << "ms" << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
+  std::cout << "ALT average search space: "
+            << search_space / route_requests.size() << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
 
-  cout << "ALT average search space: " << search_space / route_requests.size()
-       << endl;
-  cout << "----------------------------------------" << endl;
-
-  std::ofstream route_costs_alt_file(std::string(BENCH_DIR) +
-                                     "route_costs_alt.txt");
-  if (!route_costs_alt_file) {
-    std::cerr << "Error opening file." << endl;
+  std::ofstream route_costs_alt_stream(BENCH_DIR + "route_costs_alt.txt");
+  if (!route_costs_alt_stream) {
+    std::cerr << "Error opening file." << std::endl;
     exit(EXIT_FAILURE);
   }
 
   for (auto cost : path_costs_alt) {
-    route_costs_alt_file << cost << endl;
+    route_costs_alt_stream << cost << std::endl;
   }
 
-  route_costs_alt_file.close();
+  route_costs_alt_stream.close();
+}
+void Benchmark::bench_new_alt(size_t lm_count, const Graph &graph,
+                              const Graph &graph_reverse,
+                              const route_requests_vec &route_requests,
+                              const New_lm_data &lm_data) {
+  using Clock = std::chrono::high_resolution_clock;
+  using Milliseconds = std::chrono::milliseconds;
+
+  std::cout << "----------------------------------------" << std::endl;
+  std::cout << "Starting new ALT benchmark." << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
+
+  long alt_time = 0;
+  uint32_t search_space = 0;
+  std::vector<uint32_t> path_costs_alt;
+
+  New_ALT new_alt(graph, lm_data);
+
+  /*for (size_t i = 0; i < 1; ++i) {*/
+  for (size_t i = 0; i < route_requests.size(); ++i) {
+    uint32_t src_id = route_requests[i].first;
+    uint32_t trg_id = route_requests[i].second;
+    uint32_t nodes_checked = 0;
+
+    auto start_alt = Clock::now();
+    uint32_t cost = new_alt.src_to_trg(src_id, trg_id, nodes_checked);
+    auto end_alt = Clock::now();
+    auto duration_alt =
+        std::chrono::duration_cast<Milliseconds>(end_alt - start_alt);
+
+    uint32_t progress =
+        static_cast<uint32_t>((i + 1) * 100 / route_requests.size());
+    std::cout << "\rProgress: " << progress << "%" << std::flush;
+
+    search_space += nodes_checked;
+
+    alt_time += duration_alt.count();
+    path_costs_alt.push_back(cost);
+  }
+
+  std::cout << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
+  std::cout << "New ALT average execution time: "
+            << alt_time / route_requests.size() << "ms" << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
+  std::cout << "New ALT average search space: "
+            << search_space / route_requests.size() << std::endl;
+  std::cout << "----------------------------------------" << std::endl;
+
+  std::ofstream route_costs_alt_stream(BENCH_DIR + "route_costs_new_alt.txt");
+  if (!route_costs_alt_stream) {
+    std::cerr << "Error opening file." << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  for (auto cost : path_costs_alt) {
+    route_costs_alt_stream << cost << std::endl;
+  }
+
+  route_costs_alt_stream.close();
 }
 
 void Benchmark::sort_landmark_distances(
-    const int &src_id, const int &trg_id,
-    std::vector<std::vector<int>> &landmark_distances) {
+    const uint32_t &src_id, const uint32_t &trg_id,
+    std::vector<std::vector<uint32_t>> &landmark_distances) {
   std::sort(landmark_distances.begin(), landmark_distances.end(),
-            [src_id, trg_id](auto &a, auto &b) -> bool {
-              if (a[src_id] == INT_MAX || a[trg_id] == INT_MAX ||
-                  b[src_id] == INT_MAX || b[trg_id] == INT_MAX) {
-                return INT_MIN;
+            [src_id, trg_id](auto &a, auto &b) {
+              if (a[src_id] == UINT32_MAX || a[trg_id] == UINT32_MAX) {
+                return true;
+              } else if (b[src_id] == UINT32_MAX || b[trg_id] == UINT32_MAX) {
+                return false;
               }
-              return (a[src_id] - a[trg_id]) > (b[src_id] - b[trg_id]);
+
+              return (static_cast<int32_t>(a[src_id]) -
+                      static_cast<int32_t>(a[trg_id])) >
+                     (static_cast<int32_t>(b[src_id]) -
+                      static_cast<int32_t>(b[trg_id]));
             });
-}
-
-void Benchmark::debug(const std::string &graph) {
-  Graph_parser gp;
-  std::vector<int> node_offsets;
-  std::vector<Edge> edges;
-  /*std::vector<int> node_offsets_rev;*/
-  /*std::vector<Edge> edges_rev;*/
-
-  gp.deserialize(std::string(GRAPH_DIR) + graph + ".bin", node_offsets, edges);
-  /*gp.deserialize(std::string(GRAPH_DIR) + "MV_rev.bin", node_offsets_rev,*/
-  /*               edges_rev);*/
-
-  Dijkstra dijkstra_forward(node_offsets, edges);
-  /*Dijkstra dijkstra_reverse(node_offsets_rev, edges_rev);*/
-
-  Benchmark_file_generator bfg(dijkstra_forward);
-  bfg.create_files(100, graph);
 }

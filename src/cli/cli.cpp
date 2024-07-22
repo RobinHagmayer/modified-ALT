@@ -28,11 +28,11 @@ void CLI::handle_one_to_all(Dijkstra &dijkstra) {
   std::cout << "\nPlease enter the source node id: " << std::endl;
   std::cin >> src_id;
 
-  int number_of_nodes = dijkstra.node_offsets_.size() - 1;
+  int number_of_nodes = dijkstra.node_offsets.size() - 1;
   std::vector<int> distances(number_of_nodes, std::numeric_limits<int>::max());
 
   auto start = std::chrono::high_resolution_clock::now();
-  dijkstra.src_to_all(src_id, distances);
+  /*dijkstra.src_to_all(src_id, distances);*/
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -54,12 +54,12 @@ void CLI::handle_src_to_trg(Dijkstra &dijkstra) {
   std::cin >> src_id >> trg_id;
 
   auto start = std::chrono::high_resolution_clock::now();
-  int path_cost = dijkstra.src_to_trg(src_id, trg_id, nodes_checked);
+  /*int path_cost = dijkstra.src_to_trg(src_id, trg_id, nodes_checked);*/
   auto end = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-  std::cout << "\nCost: " << path_cost << std::endl;
+  /*std::cout << "\nCost: " << path_cost << std::endl;*/
   std::cout << "Dijkstra source to target execution time: " << duration.count()
             << "ms." << std::endl;
   std::cout << "Dijkstra search space: " << nodes_checked << std::endl;
@@ -71,8 +71,8 @@ void handle_alt(const std::vector<int> &node_offsets,
                 const std::vector<Edge> &edges,
                 const std::vector<int> &node_offsets_rev,
                 const std::vector<Edge> &edges_rev) {
-  Dijkstra dijkstra_rev(node_offsets_rev, edges_rev);
-  std::unordered_map<int, std::vector<int>> landmark_distances;
+  /*Dijkstra dijkstra_rev(node_offsets_rev, edges_rev);*/
+  /*std::unordered_map<int, std::vector<int>> landmark_distances;*/
 
   /*Random_landmarks::preprocess(dijkstra_rev, 1, landmark_distances);*/
 
@@ -110,7 +110,7 @@ void CLI::run(std::vector<int> &node_offsets, std::vector<Edge> &edges,
   using std::cout;
   using std::endl;
 
-  Dijkstra dijkstra(node_offsets, edges);
+  /*Dijkstra dijkstra(node_offsets, edges);*/
 
   bool keep_running = true;
   int choice;
@@ -124,10 +124,10 @@ void CLI::run(std::vector<int> &node_offsets, std::vector<Edge> &edges,
       keep_running = false;
       break;
     case 1:
-      handle_one_to_all(dijkstra);
+      /*handle_one_to_all(dijkstra);*/
       break;
     case 2:
-      handle_src_to_trg(dijkstra);
+      /*handle_src_to_trg(dijkstra);*/
       break;
     case 3:
       handle_alt(node_offsets, edges, node_offsets_rev, edges_rev);

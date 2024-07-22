@@ -1,23 +1,28 @@
 #include "dijkstra.h"
-#include "edge.h"
 
 #include <climits>
+#include <cstdint>
 #include <queue>
+#include <vector>
 
-void Dijkstra::src_to_all(int src, std::vector<int> &distances) {
+void Dijkstra::src_to_all(uint32_t src, std::vector<uint32_t> &distances) {
   using std::pair;
   using std::vector;
 
+  // We cant' lazy update in here because we need to set the distances to infinity
+  distances.resize(node_offsets.size() - 1, UINT32_MAX);
+
   distances[src] = 0;
-  std::priority_queue<pair<int, int>, vector<pair<int, int>>,
-                      std::greater<pair<int, int>>>
+  std::priority_queue<pair<uint32_t, uint32_t>,
+                      vector<pair<uint32_t, uint32_t>>,
+                      std::greater<pair<uint32_t, uint32_t>>>
       pq;
   pq.push({0, src});
 
   while (!pq.empty()) {
     // Get the closest node to the source
-    int current_node_dist = pq.top().first;
-    int current_node_id = pq.top().second;
+    uint32_t current_node_dist = pq.top().first;
+    uint32_t current_node_id = pq.top().second;
     pq.pop();
 
     if (current_node_dist > distances[current_node_id]) {
@@ -25,10 +30,10 @@ void Dijkstra::src_to_all(int src, std::vector<int> &distances) {
     }
 
     // Check the neighbors of the current node
-    int start = node_offsets_[current_node_id];
-    int end = node_offsets_[current_node_id + 1];
-    for (int i = start; i < end; i++) {
-      const Edge &neighbor = edges_[i];
+    uint32_t start = node_offsets[current_node_id];
+    uint32_t end = node_offsets[current_node_id + 1];
+    for (uint32_t i = start; i < end; ++i) {
+      const Edge &neighbor = edges[i];
 
       if (distances[current_node_id] + neighbor.weight <
           distances[neighbor.trg_id]) {
@@ -40,23 +45,64 @@ void Dijkstra::src_to_all(int src, std::vector<int> &distances) {
   }
 }
 
-int Dijkstra::src_to_trg(int src, int trg, int &nodes_checked) {
+std::vector<uint32_t> Dijkstra::src_to_all(uint32_t src) {
   using std::pair;
   using std::vector;
 
-  // Initialize distances vector, visited array and priority queue
-  int number_of_nodes = node_offsets_.size() - 1;
-  vector<int> distances(number_of_nodes, INT_MAX);
+  std::vector<uint32_t> distances(node_offsets.size() - 1, UINT32_MAX);
+
   distances[src] = 0;
-  std::priority_queue<pair<int, int>, vector<pair<int, int>>,
-                      std::greater<pair<int, int>>>
+  std::priority_queue<pair<uint32_t, uint32_t>,
+                      vector<pair<uint32_t, uint32_t>>,
+                      std::greater<pair<uint32_t, uint32_t>>>
       pq;
   pq.push({0, src});
 
   while (!pq.empty()) {
     // Get the closest node to the source
-    int current_node_dist = pq.top().first;
-    int current_node_id = pq.top().second;
+    uint32_t current_node_dist = pq.top().first;
+    uint32_t current_node_id = pq.top().second;
+    pq.pop();
+
+    if (current_node_dist > distances[current_node_id]) {
+      continue;
+    }
+
+    // Check the neighbors of the current node
+    uint32_t start = node_offsets[current_node_id];
+    uint32_t end = node_offsets[current_node_id + 1];
+    for (uint32_t i = start; i < end; ++i) {
+      const Edge &neighbor = edges[i];
+
+      if (distances[current_node_id] + neighbor.weight <
+          distances[neighbor.trg_id]) {
+        distances[neighbor.trg_id] =
+            distances[current_node_id] + neighbor.weight;
+        pq.push({distances[neighbor.trg_id], neighbor.trg_id});
+      }
+    }
+  }
+
+  return distances;
+}
+
+uint32_t Dijkstra::src_to_trg(uint32_t src, uint32_t trg,
+                              uint32_t &nodes_checked) {
+  using std::pair;
+  using std::vector;
+
+  vector<uint32_t> distances(node_offsets.size() - 1, UINT32_MAX);
+  distances[src] = 0;
+  std::priority_queue<pair<uint32_t, uint32_t>,
+                      vector<pair<uint32_t, uint32_t>>,
+                      std::greater<pair<uint32_t, uint32_t>>>
+      pq;
+  pq.push({0, src});
+
+  while (!pq.empty()) {
+    // Get the closest node to the source
+    uint32_t current_node_dist = pq.top().first;
+    uint32_t current_node_id = pq.top().second;
     pq.pop();
 
     // Target found. Early return
@@ -73,11 +119,11 @@ int Dijkstra::src_to_trg(int src, int trg, int &nodes_checked) {
     nodes_checked++;
 
     // Check the neighbors of the current node
-    int start = node_offsets_[current_node_id];
-    int end = node_offsets_[current_node_id + 1];
-    for (int i = start; i < end; i++) {
-      const Edge &neighbor = edges_[i];
-      const int new_cost = distances[current_node_id] + neighbor.weight;
+    uint32_t start = node_offsets[current_node_id];
+    uint32_t end = node_offsets[current_node_id + 1];
+    for (size_t i = start; i < end; i++) {
+      const Edge &neighbor = edges[i];
+      const uint32_t new_cost = distances[current_node_id] + neighbor.weight;
 
       if (new_cost < distances[neighbor.trg_id]) {
         distances[neighbor.trg_id] = new_cost;
@@ -87,5 +133,5 @@ int Dijkstra::src_to_trg(int src, int trg, int &nodes_checked) {
   }
 
   // Target node was not found
-  return -1;
+  return UINT32_MAX;
 }
