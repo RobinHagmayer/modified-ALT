@@ -8,13 +8,32 @@
 #include <string>
 #include <vector>
 
+/**
+ * Stores the pair of point-to-point shortest path queries
+ * (source_id, target_id).
+ */
 typedef std::vector<std::pair<uint32_t, uint32_t>> route_requests_vec;
 
 const std::string GRAPH_DIR = "./data/graphs/";
 const std::string BENCH_DIR = "./data/benchs/";
 
+/**
+ * @brief Represents a benchmark.
+ *
+ * The Benchmark class provides functionality for running benchmarks and
+ * creating benchmarks for point-to-point shortest path queries.
+ * The algorithms which can be benchmarked are:
+ *   - Dijkstra
+ *   - Default ALT
+ *   - Modified ALT
+ */
 class Benchmark {
 public:
+  /**
+   * Run the benchmark.
+   * @param argc The number of command line arguments.
+   * @param argv The array of command line arguments.
+   */
   void run(int argc, char *argv[]);
 
   void create_binary_graph(const std::string &graph_path);
