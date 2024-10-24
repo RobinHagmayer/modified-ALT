@@ -1,6 +1,8 @@
 #include "graph/graph_partitioner.h"
 
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
 #include <vector>
 
 #include "graph/graph.h"
@@ -63,6 +65,39 @@ std::vector<Cell> PartitionGraphInCells(const Graph &graph,
       exit(EXIT_FAILURE);
     }
   }
+
+  return cells;
+}
+
+std::vector<Cell> TranslateFile(const uint32_t cell_count,
+                                const std::vector<Vertex> &vertices,
+                                const std::string &path) {
+  std::vector<Cell> cells{};
+
+  for (uint32_t i{0}; i < cell_count; ++i) {
+    Cell c{};
+    c.index = i;
+    c.vertices = std::vector<Vertex>();
+    cells.emplace_back(c);
+  }
+
+  uint32_t line_idx{0};
+  std::ifstream in_file(path);
+
+  if (!in_file) {
+    std::cerr << "Error opening file!" << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  uint32_t number;
+  while (in_file >> number) {
+    Vertex vertex{vertices.at(line_idx)};
+    cells.at(number).vertices.push_back(vertex);
+
+    ++line_idx;
+  }
+
+  in_file.close();
 
   return cells;
 }

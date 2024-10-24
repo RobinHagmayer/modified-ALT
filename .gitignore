@@ -40,10 +40,12 @@ data/graphs/*
 data/bench_files/*
 data/results/*
 data/preprocessing/*
+data/partitions/*
 !data/graphs/.gitkeep
 !data/bench_files/.gitkeep
 !data/results/.gitkeep
 !data/preprocessing/.gitkeep
+!data/partitions/.gitkeep
 
 tests/data/*
 !tests/data/.gitkeep

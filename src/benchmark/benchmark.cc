@@ -64,6 +64,9 @@ void run(int argc, char *argv[]) {
       .default_value(0)
       .scan<'u', uint32_t>();
 
+  program.add_argument("-t").default_value(0).scan<'u', uint32_t>();
+  program.add_argument("-T").flag();
+
   program.add_epilog(
       "The options for the -a flag are the "
       "following:\n\t\"dijkstra\"\n\t\"alt\"\n\t\"modified-alt\"");
@@ -84,6 +87,7 @@ void run(int argc, char *argv[]) {
   std::string partition_corners_path{
       PREPROCESSING_DIR + selected_graph +
       "_partition-corners_modified-alt_data.bin"};
+  std::string graph_partition_path{PARTITION_DIR + selected_graph};
 
   std::cout << "Starting parsing the graph " << selected_graph << " ...\n";
   graph::Graph graph{graph::ParseGraphFile(graph_path)};
@@ -141,6 +145,45 @@ void run(int argc, char *argv[]) {
     }
   }
 
+  if (program.is_used("-t")) {
+    uint32_t cell_count{program.get<uint32_t>("-t")};
+    std::vector<graph::Cell> cells{graph::TranslateFile(
+        cell_count, graph.GetVertices(),
+        graph_partition_path + std::to_string(cell_count) + ".txt")};
+    std::vector<uint32_t> landmarks{PartitionCornersLandmarkSelection(cells)};
+    std::cout << "Landmark count: " << landmarks.size() << '\n';
+
+    // auto ldv{CalculateLandmarkDistanceVectors(graph_reverse, landmarks)};
+    // SerializeLandmarkDistanceVectors(
+    //     PREPROCESSING_DIR + selected_graph + "_test.bin", ldv);
+    ModifiedAltData modified_alt_data{
+        CalculateModifiedAltData(graph, graph_reverse, landmarks)};
+
+    SerializeModifiedAltData(PREPROCESSING_DIR + selected_graph + "_test.bin",
+                             modified_alt_data);
+
+    auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
+    std::ofstream out("output-test.geojson");
+    if (out) {
+      out << geojson;
+      out.close();
+    }
+
+    exit(EXIT_SUCCESS);
+  }
+
+  if (program.is_used("-T")) {
+    const std::vector<Query> route_requests{ParseRouteRequestFile(query_path)};
+    // auto ldv{DeserializeLandmarkDistanceVectors(PREPROCESSING_DIR +
+    //                                             selected_graph +
+    //                                             "_test.bin")};
+    // BenchAlt(graph, ldv, route_requests);
+    ModifiedAltData modified_alt_data{DeserializeModifiedAltData(
+        PREPROCESSING_DIR + selected_graph + "_test.bin")};
+
+    BenchModifiedAlt(graph, modified_alt_data, route_requests);
+  }
+
   if (program.is_used("-p") && program.is_used("--random")) {
     uint32_t landmark_count{program.get<uint32_t>("--random")};
     auto landmarks{RandomLandmarkSelection(graph_reverse, landmark_count)};
@@ -149,6 +192,13 @@ void run(int argc, char *argv[]) {
     SerializeLandmarkDistanceVectors(
         PREPROCESSING_DIR + selected_graph + "_ldv.bin",
         landmark_distance_vectors);
+
+    auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
+    std::ofstream out("output-random.geojson");
+    if (out) {
+      out << geojson;
+      out.close();
+    }
 
     exit(EXIT_SUCCESS);
   } else if (program.is_used("-p") && program.is_used("--farthest")) {
@@ -170,6 +220,13 @@ void run(int argc, char *argv[]) {
     auto ldv{CalculateLandmarkDistanceVectors(graph_reverse, landmarks)};
     SerializeLandmarkDistanceVectors(
         PREPROCESSING_DIR + selected_graph + "_pc.bin", ldv);
+
+    auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
+    std::ofstream out("output-pc.geojson");
+    if (out) {
+      out << geojson;
+      out.close();
+    }
 
     exit(EXIT_SUCCESS);
   }
