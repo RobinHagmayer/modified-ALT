@@ -1,15 +1,12 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
-#include <vector>
 
 #include "algorithms/dijkstra.h"
+#include "preprocessing/data_types.h"
 
 namespace modified_alt {
 namespace preprocessing {
-
-using LandmarkDistanceVectors = std::vector<std::vector<uint32_t>>;
 
 LandmarkDistanceVectors PreprocessRandom(
     const algorithms::Dijkstra &dijkstra_reverse, const size_t landmark_count,

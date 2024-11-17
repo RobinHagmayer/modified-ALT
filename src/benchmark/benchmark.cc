@@ -30,7 +30,9 @@ namespace modified_alt {
 namespace benchmark {
 
 using Clock = std::chrono::high_resolution_clock;
+using Seconds = std::chrono::seconds;
 using Milliseconds = std::chrono::milliseconds;
+using Microseconds = std::chrono::microseconds;
 using algorithms::Dijkstra;
 using std::chrono::duration_cast;
 
@@ -186,12 +188,25 @@ void run(int argc, char *argv[]) {
 
   if (program.is_used("-p") && program.is_used("--random")) {
     uint32_t landmark_count{program.get<uint32_t>("--random")};
+
+    auto start{Clock::now()};
     auto landmarks{RandomLandmarkSelection(graph_reverse, landmark_count)};
     auto landmark_distance_vectors{
         CalculateLandmarkDistanceVectors(graph_reverse, landmarks)};
-    SerializeLandmarkDistanceVectors(
-        PREPROCESSING_DIR + selected_graph + "_ldv.bin",
-        landmark_distance_vectors);
+    auto end{Clock::now()};
+    auto duration{duration_cast<Microseconds>(end - start)};
+    auto total_seconds{duration_cast<Seconds>(duration).count()};
+    auto total_milliseconds{duration_cast<Milliseconds>(duration).count() %
+                            1000};
+    auto total_microseconds{duration.count() % 1000};
+
+    std::cout << std::setfill('0') << std::setw(2) << total_seconds << " s "
+              << std::setfill('0') << std::setw(3) << total_milliseconds << " ms "
+              << std::setfill('0') << std::setw(3) << total_microseconds << " μs\n";
+
+        SerializeLandmarkDistanceVectors(
+            PREPROCESSING_DIR + selected_graph + "_ldv.bin",
+            landmark_distance_vectors);
 
     auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
     std::ofstream out("output-random.geojson");
@@ -282,8 +297,8 @@ void BenchDijkstra(const graph::Graph &graph,
   Dijkstra dijkstra(graph);
   std::vector<uint32_t> path_costs{};
   path_costs.reserve(graph.GetNumberOfNodes());
-  long time{0};
-  uint32_t search_space{0};
+  Microseconds time{0};
+  uint64_t search_space{0};
 
   uint32_t i{0};
   for (const Query &query : route_requests) {
@@ -292,7 +307,7 @@ void BenchDijkstra(const graph::Graph &graph,
     auto start{Clock::now()};
     uint32_t cost{dijkstra.ComputeSPSP(query.from, query.to, nodes_checked)};
     auto end{Clock::now()};
-    auto duration{duration_cast<Milliseconds>(end - start)};
+    auto duration{duration_cast<Microseconds>(end - start)};
 
     uint32_t progress =
         static_cast<uint32_t>((i + 1) * 100 / route_requests.size());
@@ -301,7 +316,7 @@ void BenchDijkstra(const graph::Graph &graph,
 
     path_costs.push_back(cost);
     search_space += nodes_checked;
-    time += duration.count();
+    time += duration;
   }
   std::cout << std::endl;
 
@@ -318,22 +333,29 @@ void BenchAlt(const graph::Graph &graph,
   algorithms::ALT alt(graph, landmark_distance_vectors);
   std::vector<uint32_t> path_costs{};
   path_costs.reserve(graph.GetNumberOfNodes());
-  long time{0};
-  uint32_t search_space{0};
+  Microseconds time{0};
+  uint64_t search_space{0};
 
   uint32_t i{0};
   for (const Query &query : route_requests) {
     uint32_t nodes_checked{0};
     uint32_t from{query.from};
     uint32_t to{query.to};
-
-    // Sort landmark distance vectors based on the maximum lower bounds.
-    alt.SortLandmarkDistanceVectors(from, to);
+    for (size_t j{0}; j < landmark_distance_vectors.size(); ++j) {
+      if (landmark_distance_vectors.at(j).size() != 644199) {
+        std::cerr << "Error" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+    }
 
     auto start{Clock::now()};
+    // Sort landmark distance vectors based on the maximum lower bounds.
+    alt.SortLandmarkDistanceVectors(from, to);
     uint32_t cost{alt.ComputeSPSP(from, to, 4, nodes_checked)};
+    // uint32_t cost{alt.ComputeSPSP(from, to, landmark_distance_vectors.size(),
+    // nodes_checked)};
     auto end{Clock::now()};
-    auto duration{duration_cast<Milliseconds>(end - start)};
+    auto duration{duration_cast<Microseconds>(end - start)};
 
     uint32_t progress =
         static_cast<uint32_t>((i + 1) * 100 / route_requests.size());
@@ -342,7 +364,7 @@ void BenchAlt(const graph::Graph &graph,
 
     path_costs.push_back(cost);
     search_space += nodes_checked;
-    time += duration.count();
+    time += duration;
   }
   std::cout << std::endl;
 
@@ -359,8 +381,8 @@ void BenchModifiedAlt(const graph::Graph &graph,
   algorithms::ModifiedAlt modified_alt(graph, modified_alt_data);
   std::vector<uint32_t> path_costs{};
   path_costs.reserve(graph.GetNumberOfNodes());
-  long time{0};
-  uint32_t search_space{0};
+  Microseconds time{0};
+  uint64_t search_space{0};
 
   uint32_t i{0};
   for (const Query &query : route_requests) {
@@ -370,7 +392,7 @@ void BenchModifiedAlt(const graph::Graph &graph,
     uint32_t cost{
         modified_alt.ComputeSPSP(query.from, query.to, nodes_checked)};
     auto end{Clock::now()};
-    auto duration{duration_cast<Milliseconds>(end - start)};
+    auto duration{duration_cast<Microseconds>(end - start)};
 
     uint32_t progress =
         static_cast<uint32_t>((i + 1) * 100 / route_requests.size());
@@ -379,7 +401,7 @@ void BenchModifiedAlt(const graph::Graph &graph,
 
     path_costs.push_back(cost);
     search_space += nodes_checked;
-    time += duration.count();
+    time += duration;
   }
   std::cout << std::endl;
 
@@ -395,12 +417,20 @@ void PrintBenchmarkHeader(const std::string &algorithm) {
   std::cout << "----------------------------------------" << std::endl;
 }
 
-void PrintBenchmarkResults(const std::string &algorithm, const long time,
-                           const uint32_t search_space,
+void PrintBenchmarkResults(const std::string &algorithm,
+                           const Microseconds time, const uint64_t search_space,
                            const size_t query_count) {
+  auto divided_time{time / query_count};
+  auto total_seconds{duration_cast<Seconds>(divided_time).count()};
+  auto total_milliseconds{duration_cast<Milliseconds>(divided_time).count() %
+                          1000};
+  auto total_microseconds{divided_time.count() % 1000};
+
   std::cout << "----------------------------------------\n";
-  std::cout << algorithm << " average execution time: "
-            << time / static_cast<long>(query_count) << "ms\n";
+  std::cout << algorithm << " average execution time: " << std::setfill('0')
+            << std::setw(2) << total_seconds << " s " << std::setfill('0')
+            << std::setw(3) << total_milliseconds << " ms " << std::setfill('0')
+            << std::setw(3) << total_microseconds << " μs\n";
   std::cout << "----------------------------------------\n";
   std::cout << algorithm
             << " average search space: " << search_space / query_count << '\n';

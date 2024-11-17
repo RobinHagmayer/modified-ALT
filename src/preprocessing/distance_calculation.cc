@@ -18,7 +18,7 @@ LandmarkDistanceVectors CalculateLandmarkDistanceVectors(
   landmark_distance_vectors.reserve(landmarks.size());
 
   for (const auto &landmark : landmarks) {
-    std::cout << landmark << '\n';
+    // std::cout << landmark << '\n';
     landmark_distance_vectors.emplace_back(
         dijkstra_reverse.ComputeSSSP(landmark));
   }

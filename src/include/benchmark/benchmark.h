@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <vector>
 
@@ -25,8 +26,8 @@ void BenchModifiedAlt(const graph::Graph &graph,
 
 void PrintBenchmarkHeader(const std::string &algorithm);
 
-void PrintBenchmarkResults(const std::string &algorithm, const long time,
-                           const uint32_t search_space,
+void PrintBenchmarkResults(const std::string &algorithm, const std::chrono::microseconds time,
+                           const uint64_t search_space,
                            const size_t query_count);
 
 }  // namespace benchmark

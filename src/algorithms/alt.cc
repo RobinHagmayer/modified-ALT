@@ -1,6 +1,7 @@
 #include "algorithms/alt.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <queue>
@@ -121,6 +122,7 @@ uint32_t ALT::ComputeSPSP(const uint32_t source, const uint32_t target,
 
 inline uint32_t ALT::h(const uint32_t node, const uint32_t target,
                        const size_t used_landmarks) const {
+  // int64_t heuristic{0};
   uint32_t heuristic{0};
 
   for (size_t i{0}; i < used_landmarks; ++i) {
@@ -134,6 +136,9 @@ inline uint32_t ALT::h(const uint32_t node, const uint32_t target,
       continue;
     }
 
+    // int64_t distance{static_cast<int64_t>(node_to_landmark_distance) -
+    //                    static_cast<int64_t>(target_to_landmark_distance)};
+
     if (target_to_landmark_distance > node_to_landmark_distance) {
       continue;
     }
@@ -146,13 +151,36 @@ inline uint32_t ALT::h(const uint32_t node, const uint32_t target,
     }
   }
 
+  // return static_cast<uint32_t>(heuristic);
   return heuristic;
 }
 
 void ALT::SortLandmarkDistanceVectors(const uint32_t from, const uint32_t to) {
+  for (size_t j{0}; j < landmark_distance_vectors_.size(); ++j) {
+    if (landmark_distance_vectors_.at(j).size() != 644199) {
+      std::cout << from << to << '\n';
+      std::cerr << "Error outside sort" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
   std::sort(landmark_distance_vectors_.begin(),
             landmark_distance_vectors_.end(),
+            // [](const auto &first, const auto &second) {
             [from, to](const auto &first, const auto &second) {
+              assert(from < first.size());
+              assert(to < first.size());
+              assert(from < second.size());
+              assert(to < second.size());
+
+              // std::cout << "first size: " << first.size() << " second size: "
+              // << second.size() << '\n'; if (first.size() != 644199 ||
+              // second.size() != 644199) {
+              //   std::cerr << "Error inside sort" << std::endl;
+              //   exit(EXIT_FAILURE);
+              // }
+              // return from < to;
+              //
               long first_from{first.at(from)};
               long first_to{first.at(to)};
               long second_from{second.at(from)};
@@ -176,6 +204,7 @@ void ALT::SortLandmarkDistanceVectors(const uint32_t from, const uint32_t to) {
 
               return result_first > result_second;
             });
+  std::cout << '\n';
 }
 
 }  // namespace algorithms
