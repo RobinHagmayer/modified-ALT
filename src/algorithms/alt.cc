@@ -156,55 +156,74 @@ inline uint32_t ALT::h(const uint32_t node, const uint32_t target,
 }
 
 void ALT::SortLandmarkDistanceVectors(const uint32_t from, const uint32_t to) {
-  for (size_t j{0}; j < landmark_distance_vectors_.size(); ++j) {
-    if (landmark_distance_vectors_.at(j).size() != 644199) {
-      std::cout << from << to << '\n';
-      std::cerr << "Error outside sort" << std::endl;
-      exit(EXIT_FAILURE);
-    }
-  }
+  // for (size_t j{0}; j < landmark_distance_vectors_.size(); ++j) {
+  //   if (landmark_distance_vectors_.at(j).size() != 644199) {
+  //     std::cout << from << to << '\n';
+  //     std::cerr << "Error outside sort" << std::endl;
+  //     exit(EXIT_FAILURE);
+  //   }
+  // }
 
   std::sort(landmark_distance_vectors_.begin(),
             landmark_distance_vectors_.end(),
-            // [](const auto &first, const auto &second) {
-            [from, to](const auto &first, const auto &second) {
-              assert(from < first.size());
-              assert(to < first.size());
-              assert(from < second.size());
-              assert(to < second.size());
-
-              // std::cout << "first size: " << first.size() << " second size: "
-              // << second.size() << '\n'; if (first.size() != 644199 ||
-              // second.size() != 644199) {
-              //   std::cerr << "Error inside sort" << std::endl;
-              //   exit(EXIT_FAILURE);
-              // }
-              // return from < to;
-              //
-              long first_from{first.at(from)};
-              long first_to{first.at(to)};
-              long second_from{second.at(from)};
-              long second_to{second.at(to)};
-              // std::cout << "first from: " << first_from
-              //           << ", first to: " << first_to
-              //           << ", second from: " << second_from
-              //           << ", second to: " << second_to << std::endl;
-
-              if (first_from == UINT32_MAX || first_to == UINT32_MAX) {
-                return true;
-              }
-              if (second_from == UINT32_MAX || second_to == UINT32_MAX) {
+            [from, to](const auto &a, const auto &b) {
+              if (a.at(from) == UINT32_MAX || a.at(to) == UINT32_MAX) {
                 return false;
               }
 
-              long result_first{first_from - first_to};
-              long result_second{second_from - second_to};
-              // std::cout << "first: " << result_first
-              //           << ", second: " << result_second << std::endl;
+              if (b.at(from) == UINT32_MAX || b.at(to) == UINT32_MAX) {
+                return true;
+              }
 
-              return result_first > result_second;
+              const int64_t diff_a{static_cast<int64_t>(a.at(from)) -
+                                   static_cast<int64_t>(a.at(to))};
+              const int64_t diff_b{static_cast<int64_t>(b.at(from)) -
+                                   static_cast<int64_t>(b.at(to))};
+
+              return diff_a > diff_b;
             });
-  std::cout << '\n';
+
+  // std::sort(landmark_distance_vectors_.begin(),
+  //           landmark_distance_vectors_.end(),
+  //           // [](const auto &first, const auto &second) {
+  //           [from, to](const auto &first, const auto &second) {
+  //             assert(from < first.size());
+  //             assert(to < first.size());
+  //             assert(from < second.size());
+  //             assert(to < second.size());
+  //
+  //             // std::cout << "first size: " << first.size() << " second
+  //             size: "
+  //             // << second.size() << '\n'; if (first.size() != 644199 ||
+  //             // second.size() != 644199) {
+  //             //   std::cerr << "Error inside sort" << std::endl;
+  //             //   exit(EXIT_FAILURE);
+  //             // }
+  //             // return from < to;
+  //             //
+  //             long first_from{first.at(from)};
+  //             long first_to{first.at(to)};
+  //             long second_from{second.at(from)};
+  //             long second_to{second.at(to)};
+  //             // std::cout << "first from: " << first_from
+  //             //           << ", first to: " << first_to
+  //             //           << ", second from: " << second_from
+  //             //           << ", second to: " << second_to << std::endl;
+  //
+  //             if (first_from == UINT32_MAX || first_to == UINT32_MAX) {
+  //               return true;
+  //             }
+  //             if (second_from == UINT32_MAX || second_to == UINT32_MAX) {
+  //               return false;
+  //             }
+  //
+  //             long result_first{first_from - first_to};
+  //             long result_second{second_from - second_to};
+  //             // std::cout << "first: " << result_first
+  //             //           << ", second: " << result_second << std::endl;
+  //
+  //             return result_first > result_second;
+  //           });
 }
 
 }  // namespace algorithms
