@@ -40,7 +40,7 @@ LandmarkDistanceVectors SelectFarthestLandmarks(
   auto random_node_distances{dijkstra.ComputeSSSP(random_node)};
   uint32_t first_landmark{FindFarthestNode(random_node_distances,
                                            highly_reachable_distance_vector)};
-  std::cout << "Landmark ID: " << first_landmark << std::endl;
+  // std::cout << "Landmark ID: " << first_landmark << std::endl;
 
   auto first_landmark_distances{dijkstra_reverse.ComputeSSSP(first_landmark)};
   // Copy first landmark distances for aggregate distances.
@@ -51,7 +51,7 @@ LandmarkDistanceVectors SelectFarthestLandmarks(
   while (landmark_counter < landmark_count) {
     uint32_t next_landmark{
         FindFarthestNode(minimal_distances, highly_reachable_distance_vector)};
-    std::cout << "Landmark ID: " << next_landmark << std::endl;
+    // std::cout << "Landmark ID: " << next_landmark << std::endl;
 
     auto next_landmark_distances{dijkstra_reverse.ComputeSSSP(next_landmark)};
 

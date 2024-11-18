@@ -201,12 +201,13 @@ void run(int argc, char *argv[]) {
     auto total_microseconds{duration.count() % 1000};
 
     std::cout << std::setfill('0') << std::setw(2) << total_seconds << " s "
-              << std::setfill('0') << std::setw(3) << total_milliseconds << " ms "
-              << std::setfill('0') << std::setw(3) << total_microseconds << " μs\n";
+              << std::setfill('0') << std::setw(3) << total_milliseconds
+              << " ms " << std::setfill('0') << std::setw(3)
+              << total_microseconds << " μs\n";
 
-        SerializeLandmarkDistanceVectors(
-            PREPROCESSING_DIR + selected_graph + "_ldv.bin",
-            landmark_distance_vectors);
+    SerializeLandmarkDistanceVectors(
+        PREPROCESSING_DIR + selected_graph + "_ldv.bin",
+        landmark_distance_vectors);
 
     auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
     std::ofstream out("output-random.geojson");
@@ -218,8 +219,22 @@ void run(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   } else if (program.is_used("-p") && program.is_used("--farthest")) {
     size_t landmark_count{program.get<size_t>("--farthest")};
+
+    auto start{Clock::now()};
     auto landmark_distance_vectors{
         SelectFarthestLandmarks(graph, graph_reverse, landmark_count)};
+    auto end{Clock::now()};
+    auto duration{duration_cast<Microseconds>(end - start)};
+    auto total_seconds{duration_cast<Seconds>(duration).count()};
+    auto total_milliseconds{duration_cast<Milliseconds>(duration).count() %
+                            1000};
+    auto total_microseconds{duration.count() % 1000};
+
+    std::cout << std::setfill('0') << std::setw(2) << total_seconds << " s "
+              << std::setfill('0') << std::setw(3) << total_milliseconds
+              << " ms " << std::setfill('0') << std::setw(3)
+              << total_microseconds << " μs\n";
+
     SerializeLandmarkDistanceVectors(
         PREPROCESSING_DIR + selected_graph + "_farthest.bin",
         landmark_distance_vectors);
@@ -248,18 +263,28 @@ void run(int argc, char *argv[]) {
 
   if (program.is_used("-P") && program.is_used("--random")) {
     uint32_t landmark_count{program.get<uint32_t>("--random")};
+
+    auto start{Clock::now()};
     std::vector<uint32_t> landmarks{
         RandomLandmarkSelection(graph_reverse, landmark_count)};
 
-    auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
-    std::ofstream out("output-random.geojson");
-    if (out) {
-      out << geojson;
-      out.close();
-    }
+    // auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
+    // std::ofstream out("output-random.geojson");
+    // if (out) {
+    //   out << geojson;
+    //   out.close();
+    // }
 
     ModifiedAltData modified_alt_data{
         CalculateModifiedAltData(graph, graph_reverse, landmarks)};
+    auto end{Clock::now()};
+    auto total_ms{duration_cast<Milliseconds>(end - start).count()};
+    auto mins{total_ms / (60 * 1000)};
+    total_ms %= (60 * 1000);
+    auto secs{total_ms / 1000};
+    auto ms{total_ms % 1000};
+    std::cout << std::setfill('0') << std::setw(2) << mins << " m "
+              << std::setw(2) << secs << " s " << std::setw(2) << ms << '\n';
 
     SerializeModifiedAltData(random_preprocessing_path, modified_alt_data);
 
@@ -341,12 +366,6 @@ void BenchAlt(const graph::Graph &graph,
     uint32_t nodes_checked{0};
     uint32_t from{query.from};
     uint32_t to{query.to};
-    for (size_t j{0}; j < landmark_distance_vectors.size(); ++j) {
-      if (landmark_distance_vectors.at(j).size() != 644199) {
-        std::cerr << "Error" << std::endl;
-        exit(EXIT_FAILURE);
-      }
-    }
 
     auto start{Clock::now()};
     // Sort landmark distance vectors based on the maximum lower bounds.

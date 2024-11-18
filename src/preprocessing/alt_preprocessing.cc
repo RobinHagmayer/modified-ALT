@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "algorithms/dijkstra.h"
+#include "preprocessing/utils.h"
 
 namespace modified_alt {
 namespace preprocessing {
