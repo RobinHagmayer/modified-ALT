@@ -62,12 +62,12 @@ void run(int argc, char *argv[]) {
       .default_value(0)
       .scan<'u', size_t>();
   program.add_argument("--partition-corners")
-      .help("use partition-corners landmark selection")
+      .help("use custom partition-corners landmark selection")
       .default_value(0)
       .scan<'u', uint32_t>();
 
-  program.add_argument("-t").default_value(0).scan<'u', uint32_t>();
-  program.add_argument("-T").flag();
+  program.add_argument("-t").default_value(0).scan<'u', uint32_t>().help("WIP");
+  program.add_argument("-T").flag().help("WIP");
 
   program.add_epilog(
       "The options for the -a flag are the "
@@ -149,23 +149,34 @@ void run(int argc, char *argv[]) {
 
   if (program.is_used("-t")) {
     uint32_t cell_count{program.get<uint32_t>("-t")};
+    auto start{Clock::now()};
     std::vector<graph::Cell> cells{graph::TranslateFile(
         cell_count, graph.GetVertices(),
         graph_partition_path + std::to_string(cell_count) + ".txt")};
     std::vector<uint32_t> landmarks{PartitionCornersLandmarkSelection(cells)};
-    std::cout << "Landmark count: " << landmarks.size() << '\n';
 
     // auto ldv{CalculateLandmarkDistanceVectors(graph_reverse, landmarks)};
-    // SerializeLandmarkDistanceVectors(
-    //     PREPROCESSING_DIR + selected_graph + "_test.bin", ldv);
     ModifiedAltData modified_alt_data{
         CalculateModifiedAltData(graph, graph_reverse, landmarks)};
 
+    auto end{Clock::now()};
+    auto total_ms{duration_cast<Milliseconds>(end - start).count()};
+    auto mins{total_ms / (60 * 1000)};
+    total_ms %= (60 * 1000);
+    auto secs{total_ms / 1000};
+    auto ms{total_ms % 1000};
+    std::cout << std::setfill('0') << std::setw(2) << mins << " m "
+              << std::setw(2) << secs << " s " << std::setw(2) << ms << '\n';
+
+    // SerializeLandmarkDistanceVectors(
+    //     PREPROCESSING_DIR + selected_graph + "_test.bin", ldv);
     SerializeModifiedAltData(PREPROCESSING_DIR + selected_graph + "_test.bin",
                              modified_alt_data);
 
+    std::cout << "Landmark count: " << landmarks.size() << '\n';
+
     auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
-    std::ofstream out("output-test.geojson");
+    std::ofstream out("output-kahip.geojson");
     if (out) {
       out << geojson;
       out.close();
@@ -268,12 +279,12 @@ void run(int argc, char *argv[]) {
     std::vector<uint32_t> landmarks{
         RandomLandmarkSelection(graph_reverse, landmark_count)};
 
-    // auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
-    // std::ofstream out("output-random.geojson");
-    // if (out) {
-    //   out << geojson;
-    //   out.close();
-    // }
+    auto geojson{graph::ConvertToGeoJSON(graph.GetVertices(), landmarks)};
+    std::ofstream out("output-random.geojson");
+    if (out) {
+      out << geojson;
+      out.close();
+    }
 
     ModifiedAltData modified_alt_data{
         CalculateModifiedAltData(graph, graph_reverse, landmarks)};
